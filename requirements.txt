@@ -1,0 +1,6 @@
+numpy>=2.0
+pytest>=8.0
+# Week 5+ only:
+# torch>=2.4
+# torchvision
+# matplotlib

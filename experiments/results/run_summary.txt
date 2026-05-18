@@ -1,0 +1,29 @@
+AxMAC end-to-end experiment summary
+============================================================
+INT sweep:  105 configs, front size 5
+FP sweep:   21 configs, front size 6
+MLP K-sweep: 7 K values
+
+--- INT (energy, NMED) Pareto front (5 points) ---
+  INT4   K=4 W=4   E= 0.0813 pJ  MED=     6.502  NMED=1.3269e-01  RMSE=      8.06
+  INT4   K=3 W=4   E= 0.0828 pJ  MED=     2.766  NMED=5.6449e-02  RMSE=     3.666
+  INT4   K=2 W=4   E= 0.0875 pJ  MED=     0.994  NMED=2.0286e-02  RMSE=     1.489
+  INT4   K=1 W=4   E= 0.0953 pJ  MED=     0.242  NMED=4.9388e-03  RMSE=    0.4919
+  INT4   K=0 W=4   E= 0.1063 pJ  MED=         0  NMED=0.0000e+00  RMSE=         0
+
+--- FP (energy, NMED) Pareto front (6 points) ---
+  BF16   K=6 —     E= 0.8847 pJ  MED= 0.0001934  NMED=5.7046e-43  RMSE= 0.0008152
+  BF16   K=5 —     E= 0.9218 pJ  MED= 8.936e-05  NMED=2.6362e-43  RMSE= 0.0005552
+  BF16   K=4 —     E= 0.9738 pJ  MED= 4.785e-05  NMED=1.4117e-43  RMSE=  0.000429
+  BF16   K=3 —     E= 1.0405 pJ  MED= 1.563e-05  NMED=4.6098e-44  RMSE= 0.0001953
+  BF16   K=2 —     E= 1.1222 pJ  MED= 1.953e-06  NMED=5.7622e-45  RMSE= 6.176e-05
+  BF16   K=1 —     E= 1.2187 pJ  MED=         0  NMED=0.0000e+00  RMSE=         0
+
+--- MLP inference (INT8, 784→128→32→10) ---
+  K=0  agreement=100.0%  NRMSE=0.0000  E/MAC=0.3000 pJ  E/inference=31.430 nJ
+  K=1  agreement= 95.3%  NRMSE=0.1669  E/MAC=0.2766 pJ  E/inference=28.975 nJ
+  K=2  agreement= 82.8%  NRMSE=0.2547  E/MAC=0.2562 pJ  E/inference=26.847 nJ
+  K=3  agreement= 75.0%  NRMSE=0.4103  E/MAC=0.2391 pJ  E/inference=25.046 nJ
+  K=4  agreement= 60.9%  NRMSE=0.5801  E/MAC=0.2250 pJ  E/inference=23.573 nJ
+  K=5  agreement= 48.4%  NRMSE=0.6435  E/MAC=0.2141 pJ  E/inference=22.427 nJ
+  K=6  agreement= 42.2%  NRMSE=0.7758  E/MAC=0.2063 pJ  E/inference=21.608 nJ

@@ -10,6 +10,7 @@ Two contracts:
 
 from __future__ import annotations
 
+import math
 import random
 
 import pytest
@@ -223,3 +224,141 @@ def test_fp_truncation_relative_error(fmt, K):
         # rounds to the format. Use a slack bound.
         loose = 2 ** (K - fmt.mant_bits + 1)
         assert rel <= loose, (x, y, K, rel, loose, exact, approx)
+
+
+# ============================================================
+# Rounding modes — Contribution A (error-compensated multiplier)
+# ============================================================
+#
+# Beyond the W2 baseline, approx_mac_int / approx_mac_fp accept a `rounding`
+# knob: "trunc" (the biased baseline), "round" (add the deterministic
+# correction constant 2^(K-1); Schulte & Swartzlander 1993) and "stochastic"
+# (add a uniform random offset in [0, 2^K); Gupta et al. 2015). These tests
+# pin the contract of the two new modes.
+
+@pytest.mark.parametrize("fmt", [INT4, INT8, INT16])
+@pytest.mark.parametrize("rounding", ["trunc", "round", "stochastic"])
+def test_int_k0_matches_exact_every_rounding(fmt, rounding):
+    """K=0 is the exact product whatever the rounding mode — the baseline
+    guarantee must survive the Contribution-A extension."""
+    rng = random.Random(0xD00D + fmt.bits)
+    for _ in range(1000):
+        a = rng.randint(fmt.min_val, fmt.max_val)
+        b = rng.randint(fmt.min_val, fmt.max_val)
+        acc = rng.randint(-(1 << 31), (1 << 31) - 1)
+        got = approx_mac_int(a, b, acc, fmt, K=0, rounding=rounding,
+                             rng=random.Random(1))
+        assert got == mac_int(a, b, acc, fmt)
+
+
+@pytest.mark.parametrize("fmt", [INT8, INT16])
+@pytest.mark.parametrize("K", [1, 2, 4, 6])
+def test_int_round_error_bounded_and_two_signed(fmt, K):
+    """`round` keeps |exact-approx| <= 2^(K-1) — half the trunc window — and
+    for K>=2 the error is two-signed, unlike the one-signed bias of plain
+    truncation. (K=1 is degenerate: the dropped field is a single bit, so the
+    +2^(K-1)=+1 tie-break only ever rounds up — error is {0, -1}.)"""
+    rng = random.Random(0x5A1 ^ (fmt.bits << 4) ^ K)
+    half = 1 << (K - 1)
+    low_mask = (1 << K) - 1
+    seen_neg = seen_pos = False
+    for _ in range(800):
+        a = rng.randint(fmt.min_val, fmt.max_val)
+        b = rng.randint(fmt.min_val, fmt.max_val)
+        exact = mac_int(a, b, 0, fmt)
+        approx = approx_mac_int(a, b, 0, fmt, K=K, rounding="round")
+        err = exact - approx
+        assert -half <= err <= half, (a, b, K, err)
+        assert approx & low_mask == 0          # low K bits cleared
+        seen_neg |= err < 0
+        seen_pos |= err > 0
+    assert seen_neg                            # always some downward rounding
+    if K >= 2:
+        assert seen_pos                        # K>=2: genuinely two-signed
+
+
+@pytest.mark.parametrize("fmt", [INT8, INT16])
+@pytest.mark.parametrize("K", [1, 2, 4, 6])
+def test_int_stochastic_error_bounded(fmt, K):
+    """`stochastic` keeps |exact-approx| < 2^K and clears the low K bits."""
+    rng = random.Random(0x57C ^ (fmt.bits << 4) ^ K)
+    bound = 1 << K
+    low_mask = bound - 1
+    for _ in range(800):
+        a = rng.randint(fmt.min_val, fmt.max_val)
+        b = rng.randint(fmt.min_val, fmt.max_val)
+        exact = mac_int(a, b, 0, fmt)
+        approx = approx_mac_int(a, b, 0, fmt, K=K, rounding="stochastic", rng=rng)
+        err = exact - approx
+        assert -bound < err < bound, (a, b, K, err)
+        assert approx & low_mask == 0
+
+
+def test_int_stochastic_is_rng_deterministic():
+    """A seeded Random makes stochastic rounding reproducible; an independent
+    seed lets it differ — the randomness is real but fully controllable."""
+    fmt = INT8
+    pairs = [(a, b) for a in range(-50, 50, 9) for b in range(-50, 50, 9)]
+
+    def run(seed):
+        g = random.Random(seed)
+        return [approx_mac_int(a, b, 0, fmt, K=5, rounding="stochastic", rng=g)
+                for a, b in pairs]
+
+    assert run(2024) == run(2024)          # same seed -> identical stream
+    assert run(2024) != run(99)            # different seed -> differs somewhere
+
+
+@pytest.mark.parametrize("bad", ["nearest", "rne", "", "TRUNC"])
+def test_int_rejects_unknown_rounding(bad):
+    with pytest.raises(ValueError, match="rounding"):
+        approx_mac_int(3, 5, 0, INT8, K=2, rounding=bad)  # type: ignore[arg-type]
+
+
+def test_fp_rejects_unknown_rounding():
+    with pytest.raises(ValueError, match="rounding"):
+        approx_mac_fp(encode_fp(1.0, FP32), encode_fp(2.0, FP32),
+                      encode_fp(0.0, FP32), FP32, K=2,
+                      rounding="bogus")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("fmt", [FP16, BF16, FP32])
+@pytest.mark.parametrize("rounding", ["round", "stochastic"])
+def test_fp_k0_matches_exact_every_rounding(fmt, rounding):
+    """FP K=0 leaves the mantissa product untouched whatever the rounding
+    mode — the exact-MAC baseline holds for Contribution A on the FP path."""
+    rng = random.Random(0xBEEF + fmt.total_bits)
+    for _ in range(800):
+        a_bits = encode_fp(rng.uniform(-50.0, 50.0), fmt)
+        b_bits = encode_fp(rng.uniform(-50.0, 50.0), fmt)
+        c_bits = encode_fp(rng.uniform(-50.0, 50.0), fmt)
+        got = approx_mac_fp(a_bits, b_bits, c_bits, fmt, K=0,
+                            rounding=rounding, rng=random.Random(7))
+        assert got == mac_fp(a_bits, b_bits, c_bits, fmt)
+
+
+@pytest.mark.parametrize("fmt", [FP16, BF16])
+@pytest.mark.parametrize("rounding", ["round", "stochastic"])
+def test_fp_rounding_modes_stay_finite_and_bounded(fmt, rounding):
+    """round / stochastic on the FP mantissa product yield finite results
+    within the same loose relative bound the trunc path satisfies."""
+    from axmac.exact_mac import decode_fp
+
+    rng = random.Random(0xF1A ^ (fmt.total_bits << 3))
+    zero = encode_fp(0.0, fmt)
+    K = 3
+    loose = 2 ** (K - fmt.mant_bits + 1)
+    for _ in range(300):
+        x = rng.uniform(-8.0, 8.0)
+        y = rng.uniform(-8.0, 8.0)
+        a_bits = encode_fp(x, fmt)
+        b_bits = encode_fp(y, fmt)
+        exact = decode_fp(mac_fp(a_bits, b_bits, zero, fmt), fmt)
+        approx = decode_fp(
+            approx_mac_fp(a_bits, b_bits, zero, fmt, K=K,
+                          rounding=rounding, rng=rng),
+            fmt,
+        )
+        assert math.isfinite(approx)
+        if abs(exact) > 1e-6:
+            assert abs(exact - approx) / abs(exact) <= loose, (x, y, exact, approx)

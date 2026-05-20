@@ -15,7 +15,17 @@ import random
 
 import pytest
 
-from axmac.exact_mac import BF16, FP16, FP32, INT4, INT8, INT16, booth_radix4_pps
+from axmac.exact_mac import (
+    BF16,
+    FP8_E4M3,
+    FP8_E5M2,
+    FP16,
+    FP32,
+    INT4,
+    INT8,
+    INT16,
+    booth_radix4_pps,
+)
 from axmac.power_model import (
     ACC32_ADD_PJ,
     Energy,
@@ -29,6 +39,8 @@ from axmac.power_model import (
     mac_int_energy,
     mantissa_switching_activity,
     pp_switching_activity,
+    rng_energy_pJ,
+    rounding_rng_pJ,
     truncation_savings,
 )
 
@@ -78,10 +90,28 @@ def test_fp_baseline_matches_horowitz():
 
 def test_datasheet_snapshot_covers_all_formats():
     snap = datasheet_snapshot()
-    assert set(snap.keys()) == {"INT4", "INT8", "INT16", "FP16", "BF16", "FP32"}
+    assert set(snap.keys()) == {
+        "INT4", "INT8", "INT16", "E4M3", "E5M2", "FP16", "BF16", "FP32",
+    }
     for label, energy in snap.items():
         assert isinstance(energy, Energy)
         assert energy.total_pJ > 0
+
+
+@pytest.mark.parametrize(
+    "fmt, mult_pJ, add_pJ",
+    [
+        (FP8_E4M3, 0.300, 0.200),
+        (FP8_E5M2, 0.250, 0.180),
+    ],
+)
+def test_fp8_datasheet(fmt, mult_pJ, add_pJ):
+    """FP8 base energies are registered and cheaper than FP16 (1.1 / 0.4)."""
+    assert base_mult_pJ(fmt) == pytest.approx(mult_pJ)
+    assert base_add_pJ(fmt) == pytest.approx(add_pJ)
+    e = mac_fp_energy(fmt)
+    assert e.multiplier_pJ == pytest.approx(mult_pJ)
+    assert e.total_pJ < mac_fp_energy(FP16).total_pJ
 
 
 # ============================================================
@@ -276,3 +306,85 @@ def test_energy_from_activity_rejects_bad_alpha():
 def test_energy_from_activity_rejects_negative_activity():
     with pytest.raises(ValueError):
         energy_from_activity(INT8, -1)
+
+
+# ============================================================
+# Rounding-mode hardware cost (redesign task 3)
+# ============================================================
+
+def test_rng_energy_zero_without_truncation():
+    """No truncated bits ⇒ no random bits needed ⇒ no RNG."""
+    assert rng_energy_pJ(0) == 0.0
+
+
+def test_rng_energy_increases_with_K():
+    prev = -1.0
+    for K in range(0, 9):
+        e = rng_energy_pJ(K)
+        assert e >= prev, (K, e, prev)
+        prev = e
+    assert rng_energy_pJ(8) > rng_energy_pJ(1)
+
+
+def test_rng_energy_rejects_negative_K():
+    with pytest.raises(ValueError):
+        rng_energy_pJ(-1)
+
+
+def test_rounding_rng_pJ_only_stochastic_pays():
+    """trunc and round are RNG-free; only stochastic carries rng energy."""
+    for K in [1, 3, 6]:
+        assert rounding_rng_pJ("trunc", K) == 0.0
+        assert rounding_rng_pJ("round", K) == 0.0
+        assert rounding_rng_pJ("stochastic", K) == pytest.approx(rng_energy_pJ(K))
+
+
+def test_rounding_rng_pJ_rejects_unknown_mode():
+    with pytest.raises(ValueError):
+        rounding_rng_pJ("nearest", 2)
+
+
+@pytest.mark.parametrize("K", [1, 2, 4, 6])
+def test_trunc_and_round_cost_the_same(K):
+    """Thesis: deterministic compensation (round) is free — identical to trunc.
+
+    The 2^(K-1) correction constant folds into the partial-product tree, so
+    the multiplier, adder and RNG energies are all unchanged.
+    """
+    t = mac_int_energy(INT8, K=K, rounding="trunc")
+    r = mac_int_energy(INT8, K=K, rounding="round")
+    assert r.multiplier_pJ == pytest.approx(t.multiplier_pJ)
+    assert r.adder_pJ == pytest.approx(t.adder_pJ)
+    assert r.rng_pJ == t.rng_pJ == 0.0
+    assert r.total_pJ == pytest.approx(t.total_pJ)
+    # Same holds on the FP path.
+    tf = mac_fp_energy(FP8_E4M3, K=K, rounding="trunc")
+    rf = mac_fp_energy(FP8_E4M3, K=K, rounding="round")
+    assert rf.total_pJ == pytest.approx(tf.total_pJ)
+
+
+@pytest.mark.parametrize("K", [1, 2, 4, 6])
+def test_stochastic_adds_exactly_the_rng_energy(K):
+    """stochastic = trunc + the LFSR's rng_energy_pJ(K), nothing else."""
+    t = mac_int_energy(INT8, K=K, rounding="trunc")
+    s = mac_int_energy(INT8, K=K, rounding="stochastic")
+    assert s.multiplier_pJ == pytest.approx(t.multiplier_pJ)
+    assert s.adder_pJ == pytest.approx(t.adder_pJ)
+    assert s.rng_pJ == pytest.approx(rng_energy_pJ(K))
+    assert s.total_pJ == pytest.approx(t.total_pJ + rng_energy_pJ(K))
+    assert s.total_pJ > t.total_pJ
+
+
+def test_stochastic_at_k0_costs_nothing_extra():
+    """K=0 means no truncation: stochastic degenerates to the exact baseline."""
+    base = mac_int_energy(INT8, K=0, rounding="trunc")
+    stoch = mac_int_energy(INT8, K=0, rounding="stochastic")
+    assert stoch.total_pJ == pytest.approx(base.total_pJ)
+    assert stoch.rng_pJ == 0.0
+
+
+def test_energy_total_includes_rng():
+    e = Energy(0.2, 0.1, 0.05)
+    assert e.total_pJ == pytest.approx(0.35)
+    # Backwards-compatible default: rng_pJ omitted ⇒ 0.
+    assert Energy(0.2, 0.1).total_pJ == pytest.approx(0.3)

@@ -24,6 +24,22 @@ Approximation savings model:
   that no longer ripple-propagate. Fractional savings
   ``(acc_bits - W) / acc_bits * 0.5``.
 
+Rounding-mode cost (redesign task 3) — the hardware price of the three
+:mod:`axmac.approx_mac` rounding modes:
+
+* ``trunc`` and ``round`` cost the *same*. ``round`` adds the correction
+  constant 2^(K-1) before truncating, but 2^(K-1) is a single set bit: it
+  enters the partial-product reduction tree as one carry-in, needing no
+  extra reduction hardware (Schulte & Swartzlander, "Truncated Multiplication
+  with Correction Constant", 1993). Deterministic unbiasedness is therefore
+  essentially free.
+* ``stochastic`` instead adds a *fresh random* K-bit offset on every MAC,
+  which needs a per-MAC random-number generator — modelled by
+  :func:`rng_energy_pJ` as a K-bit LFSR (K flip-flops + XOR feedback). That
+  RNG energy is the cost ``round`` avoids; it is reported separately in
+  :attr:`Energy.rng_pJ`. Stochastic rounding is the unbiased technique
+  low-precision / FP8 hardware uses (Gupta et al., ICML 2015).
+
 These are simple-but-defensible analytical models; the data-dependent
 hooks let Week-5 trace experiments tighten them with real activations.
 """
@@ -33,7 +49,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Sequence
 
-from .exact_mac import BF16, FP16, FP32, INT4, INT8, INT16, FPFormat, IntFormat
+from .exact_mac import (
+    BF16,
+    FP8_E4M3,
+    FP8_E5M2,
+    FP16,
+    FP32,
+    INT4,
+    INT8,
+    INT16,
+    FPFormat,
+    IntFormat,
+)
 
 
 # ============================================================
@@ -57,6 +84,14 @@ _BASE_PJ: dict[tuple[str, str], float] = {
     ("BF16", "add"):  0.380,
     ("FP32", "mult"): 3.700,
     ("FP32", "add"):  0.900,
+    # FP8 — mantissa-product area (≈ N²) plus a fixed exponent/normalization
+    # control floor (the exponent/sign/mux logic does not shrink with the
+    # mantissa). ≈ 3× cheaper than FP16, consistent with the FP8-vs-FP16
+    # multiplier-energy gap reported for Hopper-class FP8 units.
+    ("E4M3", "mult"): 0.300,
+    ("E4M3", "add"):  0.200,
+    ("E5M2", "mult"): 0.250,
+    ("E5M2", "add"):  0.180,
 }
 
 # 32-bit accumulator add cost (used for the INT MAC's accumulator stage).
@@ -99,6 +134,52 @@ def aca_savings(acc_bits: int, window: int | None) -> float:
 
 
 # ============================================================
+# Rounding-mode cost (redesign task 3)
+# ============================================================
+
+_VALID_ROUNDING = ("trunc", "round", "stochastic")
+
+# 45 nm dynamic-energy figures for the stochastic-rounding RNG. An LFSR is
+# K flip-flops plus a small XOR feedback network; these per-element numbers
+# are in the same order of magnitude as the Horowitz datapath figures above.
+FF_ENERGY_PJ = 0.012   # one flip-flop, switching + clock load
+XOR_ENERGY_PJ = 0.003  # one 2-input XOR gate (an LFSR feedback tap)
+_LFSR_FEEDBACK_TAPS = 2  # taps for a maximal-length LFSR (modelled)
+
+
+def rng_energy_pJ(K: int) -> float:
+    """Per-MAC energy of the K-bit LFSR a stochastic-rounding unit needs.
+
+    Stochastic rounding adds a fresh uniform offset in [0, 2^K) before every
+    truncation (Gupta et al., ICML 2015). Generating it costs a per-MAC
+    random-number generator, modelled here as a maximal-length K-bit LFSR:
+    K flip-flops clocked every cycle plus a small XOR feedback network.
+
+    ``trunc`` and ``round`` need no RNG, so this is exactly the energy the
+    deterministic ``round`` mode saves over ``stochastic``. K<=0 (no
+    truncation) needs no random bits and returns 0.
+    """
+    if K < 0:
+        raise ValueError("K must be >= 0")
+    if K == 0:
+        return 0.0
+    return K * FF_ENERGY_PJ + _LFSR_FEEDBACK_TAPS * XOR_ENERGY_PJ
+
+
+def rounding_rng_pJ(rounding: str, K: int) -> float:
+    """RNG energy attributable to ``rounding``: zero except for ``stochastic``.
+
+    ``trunc`` truncates with no correction; ``round`` adds a *constant*
+    (2^(K-1)) that folds into the partial-product tree as a single carry-in
+    with no extra hardware (Schulte & Swartzlander, 1993). Only ``stochastic``
+    pays for a per-MAC RNG.
+    """
+    if rounding not in _VALID_ROUNDING:
+        raise ValueError(f"rounding must be one of {_VALID_ROUNDING}, got {rounding!r}")
+    return rng_energy_pJ(K) if rounding == "stochastic" else 0.0
+
+
+# ============================================================
 # Energy reports
 # ============================================================
 
@@ -106,15 +187,17 @@ def aca_savings(acc_bits: int, window: int | None) -> float:
 class Energy:
     multiplier_pJ: float
     adder_pJ: float
+    rng_pJ: float = 0.0  # per-MAC RNG energy; non-zero only for stochastic rounding
 
     @property
     def total_pJ(self) -> float:
-        return self.multiplier_pJ + self.adder_pJ
+        return self.multiplier_pJ + self.adder_pJ + self.rng_pJ
 
     def __repr__(self) -> str:  # nicer print in pytest failures
         return (
             f"Energy(mult={self.multiplier_pJ:.4f} pJ, "
-            f"add={self.adder_pJ:.4f} pJ, total={self.total_pJ:.4f} pJ)"
+            f"add={self.adder_pJ:.4f} pJ, rng={self.rng_pJ:.4f} pJ, "
+            f"total={self.total_pJ:.4f} pJ)"
         )
 
 
@@ -124,27 +207,36 @@ def mac_int_energy(
     K: int = 0,
     aca_window: int | None = None,
     acc_bits: int = 32,
+    rounding: str = "trunc",
 ) -> Energy:
     """Per-MAC energy for the INT path with the given approximation knobs.
 
-    K=0 + aca_window=None returns the calibrated 45 nm baseline.
+    K=0 + aca_window=None + rounding="trunc" returns the calibrated 45 nm
+    baseline. ``rounding`` only affects :attr:`Energy.rng_pJ`: ``trunc`` and
+    ``round`` are RNG-free; ``stochastic`` adds a K-bit LFSR (see
+    :func:`rng_energy_pJ`). The multiplier/adder energy is identical for all
+    three modes — they all drop the same K bits.
     """
     if K < 0:
         raise ValueError("K must be >= 0")
     mult = base_mult_pJ(fmt) * (1.0 - truncation_savings(fmt.bits, K))
     add = ACC32_ADD_PJ * (acc_bits / 32) * (1.0 - aca_savings(acc_bits, aca_window))
-    return Energy(mult, add)
+    return Energy(mult, add, rounding_rng_pJ(rounding, K))
 
 
-def mac_fp_energy(fmt: FPFormat, *, K: int = 0) -> Energy:
-    """Per-MAC energy for the FP path with mantissa truncation K."""
+def mac_fp_energy(fmt: FPFormat, *, K: int = 0, rounding: str = "trunc") -> Energy:
+    """Per-MAC energy for the FP path with mantissa truncation K.
+
+    ``rounding`` behaves as in :func:`mac_int_energy`: ``stochastic`` adds the
+    LFSR's :attr:`Energy.rng_pJ`, ``trunc`` / ``round`` do not.
+    """
     if K < 0:
         raise ValueError("K must be >= 0")
     # Mantissa product width is (mant_bits + 1) per operand (with hidden bit).
     mant_width = fmt.mant_bits + 1
     mult = base_mult_pJ(fmt) * (1.0 - truncation_savings(mant_width, K))
     add = base_add_pJ(fmt)  # FP add not approximated in W3
-    return Energy(mult, add)
+    return Energy(mult, add, rounding_rng_pJ(rounding, K))
 
 
 # ============================================================
@@ -223,6 +315,8 @@ def datasheet_snapshot() -> dict[str, Energy]:
         "INT4":  mac_int_energy(INT4),
         "INT8":  mac_int_energy(INT8),
         "INT16": mac_int_energy(INT16),
+        "E4M3":  mac_fp_energy(FP8_E4M3),
+        "E5M2":  mac_fp_energy(FP8_E5M2),
         "FP16":  mac_fp_energy(FP16),
         "BF16":  mac_fp_energy(BF16),
         "FP32":  mac_fp_energy(FP32),

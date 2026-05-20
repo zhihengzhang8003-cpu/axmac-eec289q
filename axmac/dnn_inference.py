@@ -254,23 +254,45 @@ def make_approx_linear_torch(fmt: IntFormat, K: int = 0):
 # Demo: tiny MLP forward
 # ============================================================
 
+def _per_layer_K(K: "int | Sequence[int]", n_layers: int) -> list[int]:
+    """Normalise a scalar-or-sequence ``K`` argument to a per-layer list.
+
+    A bare int broadcasts to every layer (uniform K); a sequence is taken
+    layer-by-layer and must match the layer count. Contribution B
+    (:mod:`axmac.sensitivity`) feeds the per-layer form.
+    """
+    if isinstance(K, (int, np.integer)):
+        return [int(K)] * n_layers
+    Ks = [int(k) for k in K]
+    if len(Ks) != n_layers:
+        raise ValueError(
+            f"per-layer K has {len(Ks)} entries but the MLP has {n_layers} layers"
+        )
+    return Ks
+
+
 def tiny_mlp_forward(
     x: np.ndarray,
     layers: Sequence[tuple[np.ndarray, np.ndarray | None]],
     *,
     fmt: IntFormat,
-    K: int = 0,
+    K: "int | Sequence[int]" = 0,
 ) -> np.ndarray:
     """Run an N-layer ReLU MLP forward with approximate MAC at every layer.
 
     ``layers`` is a list of ``(W, b)`` pairs; ``b`` may be ``None``. Inputs
     and weights must already be quantized to ``fmt``'s integer range. ReLU
     is applied to all layers except the last.
+
+    ``K`` is either a single int (the same truncation depth everywhere) or a
+    per-layer sequence — Contribution B's non-uniform allocation feeds the
+    latter (see :mod:`axmac.sensitivity`).
     """
     h = x
     last = len(layers) - 1
+    Ks = _per_layer_K(K, len(layers))
     for i, (w, b) in enumerate(layers):
-        h = int_linear_approx(h, w, fmt=fmt, K=K, bias=b)
+        h = int_linear_approx(h, w, fmt=fmt, K=Ks[i], bias=b)
         if i != last:
             h = np.clip(h, 0, fmt.max_val).astype(np.int64)
     return h

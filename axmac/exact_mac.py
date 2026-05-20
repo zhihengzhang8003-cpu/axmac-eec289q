@@ -1,6 +1,14 @@
-"""Bit-accurate exact MAC reference for INT4/8/16 and FP16/BF16/FP32.
+"""Bit-accurate exact MAC reference for INT4/8/16 and FP8/FP16/BF16/FP32.
 
-Stage 1 deliverable. The MAC computes ``acc + a * b`` and returns the result
+Stage 1 deliverable, extended for the redesigned project with the two 8-bit
+floating-point formats 2025-era accelerators run on: ``FP8_E4M3`` and
+``FP8_E5M2`` (Micikevicius et al., "FP8 Formats for Deep Learning",
+arXiv:2209.05433, 2022; the OCP 8-bit FP standard). E5M2 follows IEEE-754
+conventions; E4M3 deviates — it has no infinities and a single NaN encoding —
+so :class:`FPFormat` carries a ``has_inf`` flag and the codec / renormalizer
+branch on it.
+
+The MAC computes ``acc + a * b`` and returns the result
 in the same numeric format. Two interfaces are exposed:
 
 * ``mac_int`` — Booth radix-4 partial products + saturating/wrapping
@@ -50,6 +58,14 @@ class FPFormat:
     name: str
     exp_bits: int
     mant_bits: int
+    has_inf: bool = True
+    """Whether the format reserves the all-ones exponent for inf/NaN.
+
+    ``True`` for IEEE-754-style formats (FP32/FP16/BF16/E5M2). ``False`` for
+    OCP FP8 E4M3, which has no infinities: the all-ones exponent holds finite
+    normals and only the all-ones *mantissa* at that exponent is NaN
+    (Micikevicius et al. 2022).
+    """
 
     @property
     def bias(self) -> int:
@@ -67,6 +83,12 @@ class FPFormat:
 FP32 = FPFormat("FP32", 8, 23)
 FP16 = FPFormat("FP16", 5, 10)
 BF16 = FPFormat("BF16", 8, 7)
+
+# OCP 8-bit floating-point formats (Micikevicius et al. 2022). E5M2 keeps the
+# IEEE-754 layout (inf + NaN); E4M3 trades the infinities for one extra binade
+# of finite range and exposes a single NaN encoding.
+FP8_E5M2 = FPFormat("E5M2", 5, 2)
+FP8_E4M3 = FPFormat("E4M3", 4, 3, has_inf=False)
 
 
 # ============================================================
@@ -195,7 +217,8 @@ def encode_fp(x: float, fmt: FPFormat) -> int:
     if fmt is FP16:
         return _f32_bits_to_fp16(bits32)
 
-    raise ValueError(f"Unknown FP format {fmt}")
+    # FP8 (E4M3 / E5M2) and any other FPFormat: generic single-shot RNE codec.
+    return _f32_bits_to_fp_generic(bits32, fmt)
 
 
 def decode_fp(bits: int, fmt: FPFormat) -> float:
@@ -206,7 +229,7 @@ def decode_fp(bits: int, fmt: FPFormat) -> float:
         return bits_to_f32((bits & 0xFFFF) << 16)
     if fmt is FP16:
         return _fp16_to_f32(bits & 0xFFFF)
-    raise ValueError(f"Unknown FP format {fmt}")
+    return _fp_bits_to_f32_generic(bits, fmt)
 
 
 def _f32_bits_to_fp16(bits32: int) -> int:
@@ -290,6 +313,56 @@ def _fp16_to_f32(bits16: int) -> float:
 
 
 # ============================================================
+# Generic float <-> arbitrary-FPFormat codec (used for FP8)
+# ============================================================
+#
+# FP16/BF16/FP32 keep their dedicated paths above for byte-exact parity with
+# numpy / struct oracles. The two FP8 formats — and any future FPFormat —
+# reuse the FP MAC core's single-shot RNE (`_renormalize_and_pack`) so the
+# rounding is provably the same as the one the MAC datapath performs.
+
+def _f32_bits_to_fp_generic(bits32: int, fmt: FPFormat) -> int:
+    """Round an f32 bit pattern into ``fmt`` (RNE). Handles inf/NaN/zero."""
+    s = (bits32 >> 31) & 1
+    e32 = (bits32 >> 23) & 0xFF
+    m32 = bits32 & 0x7FFFFF
+
+    if e32 == 0xFF:
+        if m32 != 0:  # NaN — collapse to the format's canonical quiet NaN
+            return _make_qnan(fmt) | (s << (fmt.exp_bits + fmt.mant_bits))
+        if fmt.has_inf:  # ±infinity
+            return fp_pack(s, fmt.exp_all_ones, 0, fmt)
+        # E4M3 has no infinity: saturate to ±max-normal.
+        return fp_pack(s, fmt.exp_all_ones, (1 << fmt.mant_bits) - 2, fmt)
+
+    if e32 == 0 and m32 == 0:
+        return fp_pack(s, 0, 0, fmt)  # signed zero
+
+    # Finite non-zero: recover the f32 value V = M * 2^(E_f32 - 23) ...
+    if e32 == 0:  # f32 subnormal
+        M, E_f32 = m32, 1 - 127
+    else:
+        M, E_f32 = (1 << 23) | m32, e32 - 127
+    # ... then hand it to the MAC core's renormalizer, which reads
+    # V = M * 2^(E - mant_bits); matching exponents gives E = E_f32 - 23 + mb.
+    return _renormalize_and_pack(s, M, E_f32 - 23 + fmt.mant_bits, fmt)
+
+
+def _fp_bits_to_f32_generic(bits: int, fmt: FPFormat) -> float:
+    """Decode ``fmt`` bits to an exact Python float for an arbitrary FPFormat."""
+    s, M, E, kind = _to_internal(bits, fmt)
+    if kind == "nan":
+        return float("nan")
+    if kind == "inf":
+        return float("-inf") if s else float("inf")
+    if kind == "zero":
+        return -0.0 if s else 0.0
+    # normal / subnormal share V = M * 2^(E - mant_bits); exact in binary64.
+    val = M * (2.0 ** (E - fmt.mant_bits))
+    return -val if s else val
+
+
+# ============================================================
 # FP MAC: shared (M, E) representation
 # ============================================================
 #
@@ -304,6 +377,13 @@ def _to_internal(bits: int, fmt: FPFormat) -> tuple[int, int, int, str]:
     """
     s, e, m = fp_unpack(bits, fmt)
     if e == fmt.exp_all_ones:
+        if not fmt.has_inf:
+            # OCP FP8 E4M3: no infinities. The all-ones exponent holds finite
+            # normals; only the all-ones mantissa there is NaN.
+            if m == (1 << fmt.mant_bits) - 1:
+                return s, m, 0, "nan"
+            M = (1 << fmt.mant_bits) | m
+            return s, M, e - fmt.bias, "normal"
         return s, m, 0, "nan" if m != 0 else "inf"
     if e == 0:
         if m == 0:
@@ -314,6 +394,9 @@ def _to_internal(bits: int, fmt: FPFormat) -> tuple[int, int, int, str]:
 
 
 def _make_qnan(fmt: FPFormat) -> int:
+    if not fmt.has_inf:
+        # E4M3's single NaN encoding: all-ones exponent + all-ones mantissa.
+        return fp_pack(0, fmt.exp_all_ones, (1 << fmt.mant_bits) - 1, fmt)
     return fp_pack(0, fmt.exp_all_ones, 1 << (fmt.mant_bits - 1), fmt)
 
 
@@ -328,7 +411,10 @@ def _renormalize_and_pack(sign: int, M: int, E: int, fmt: FPFormat) -> int:
 
     mb = fmt.mant_bits
     bias = fmt.bias
-    max_norm_E = fmt.exp_all_ones - 1 - bias
+    # IEEE-style formats reserve the all-ones exponent for inf/NaN; OCP FP8
+    # E4M3 has no infinities, so that exponent code holds finite normals
+    # (Micikevicius et al. 2022) and the normal range extends by one binade.
+    max_norm_E = fmt.exp_all_ones - (1 if fmt.has_inf else 0) - bias
     min_norm_E = 1 - bias
 
     L = M.bit_length() - 1
@@ -367,9 +453,19 @@ def _renormalize_and_pack(sign: int, M: int, E: int, fmt: FPFormat) -> int:
     elif L < mb:
         M <<= mb - L
 
+    mant_mask = (1 << mb) - 1
+    if not fmt.has_inf:
+        # E4M3: no infinity. Saturate overflow to ±max-normal, and steer clear
+        # of the lone NaN encoding (all-ones exponent + all-ones mantissa) at
+        # the top of the finite range.
+        if tentative_E > max_norm_E or (
+            tentative_E == max_norm_E and (M & mant_mask) == mant_mask
+        ):
+            return fp_pack(sign, fmt.exp_all_ones, mant_mask - 1, fmt)
+        return fp_pack(sign, tentative_E + bias, M & mant_mask, fmt)
     if tentative_E > max_norm_E:
         return fp_pack(sign, fmt.exp_all_ones, 0, fmt)  # overflow -> inf
-    return fp_pack(sign, tentative_E + bias, M & ((1 << mb) - 1), fmt)
+    return fp_pack(sign, tentative_E + bias, M & mant_mask, fmt)
 
 
 def fp_multiply(a_bits: int, b_bits: int, fmt: FPFormat) -> tuple[int, int]:

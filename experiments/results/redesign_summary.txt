@@ -1,0 +1,11 @@
+AxMAC redesign experiment summary
+================================================================
+1) error accumulation: 13 depths (N=1..4096)
+2) three-way rounding: 18 (K, mode) configs
+3) FP8 study         : 40 (fmt, K, mode) configs
+4) layer allocation  : 50 (budget, policy) configs
+
+Deficiency 1 - truncation error is coherent: at N=4096 the accumulated trunc error is 26617 (grows linearly with N), vs a much smaller but still linear round error of -4091 and a near-zero stochastic error of +14.
+Contribution A - stochastic rounding is the only mode with a truly zero-mean per-MAC error (sqrt(N) growth); deterministic round cuts the coherent bias several-fold at zero hardware cost but cannot remove it, because no data-independent constant cancels the product-LSB skew.
+Modernization - the FP8 formats E4M3 / E5M2 are swept for error and energy across K, under both trunc and round.
+Contribution B - a sensitivity-driven non-uniform K budget is compared against uniform global K on the (energy, error) plane.

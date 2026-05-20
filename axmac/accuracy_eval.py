@@ -31,7 +31,7 @@ import random
 from dataclasses import dataclass
 from typing import Literal, Sequence
 
-from .approx_mac import approx_mac_fp, approx_mac_int
+from .approx_mac import RoundingMode, approx_mac_fp, approx_mac_int
 from .exact_mac import (
     FPFormat,
     IntFormat,
@@ -169,10 +169,16 @@ def error_stats_int(
     K: int = 0,
     aca_window: int | None = None,
     acc_bits: int = 32,
+    rounding: RoundingMode = "trunc",
+    rng: random.Random | None = None,
 ) -> ErrorStats:
     """Run paired exact / approx INT MAC over the sample tuples; aggregate.
 
     All three sample lists must have equal length and be ``len > 0``.
+    ``rounding`` selects trunc / round / stochastic (see
+    :mod:`axmac.approx_mac`); the ``bias`` field of the result is what the
+    three modes are compared on — trunc is one-signed, round / stochastic
+    are near-zero-mean.
     """
     n = len(a_samples)
     if n == 0:
@@ -183,7 +189,8 @@ def error_stats_int(
     for a, b, acc in zip(a_samples, b_samples, acc_samples):
         exact = mac_int(a, b, acc, fmt, acc_bits=acc_bits)
         approx = approx_mac_int(
-            a, b, acc, fmt, K=K, aca_window=aca_window, acc_bits=acc_bits
+            a, b, acc, fmt, K=K, aca_window=aca_window, acc_bits=acc_bits,
+            rounding=rounding, rng=rng,
         )
         errors.append(float(exact - approx))
     return _aggregate(errors, _int_dynamic_range(fmt))
@@ -191,8 +198,13 @@ def error_stats_int(
 
 def _fp_dynamic_range(fmt: FPFormat) -> float:
     # Largest representable finite magnitude (ignoring overflow into Inf).
-    max_exp = fmt.exp_all_ones - 1 - fmt.bias
+    # IEEE-style formats reserve the all-ones exponent for inf/NaN; OCP FP8
+    # E4M3 (has_inf=False) keeps it for finite normals but loses the
+    # all-ones-mantissa slot to its single NaN encoding.
+    max_exp = fmt.exp_all_ones - (1 if fmt.has_inf else 0) - fmt.bias
     mant_max = (1 << fmt.mant_bits) - 1
+    if not fmt.has_inf:
+        mant_max -= 1  # top mantissa code at max_exp is NaN, not a number
     mantissa = 1.0 + mant_max / (1 << fmt.mant_bits)
     return mantissa * (2.0 ** max_exp)
 
@@ -204,9 +216,12 @@ def error_stats_fp(
     acc_samples: Sequence[int],
     *,
     K: int = 0,
+    rounding: RoundingMode = "trunc",
+    rng: random.Random | None = None,
 ) -> ErrorStats:
     """Run paired exact / approx FP MAC over the sample tuples; aggregate.
 
+    ``rounding`` selects trunc / round / stochastic on the mantissa product.
     Non-finite reference results (Inf, NaN) are skipped — they indicate the
     chosen input distribution overflows the format and the error is
     undefined.
@@ -219,7 +234,7 @@ def error_stats_fp(
     errors: list[float] = []
     for a, b, acc in zip(a_samples, b_samples, acc_samples):
         exact_bits = mac_fp(a, b, acc, fmt)
-        approx_bits = approx_mac_fp(a, b, acc, fmt, K=K)
+        approx_bits = approx_mac_fp(a, b, acc, fmt, K=K, rounding=rounding, rng=rng)
         exact = decode_fp(exact_bits, fmt)
         approx = decode_fp(approx_bits, fmt)
         if not (math.isfinite(exact) and math.isfinite(approx)):
@@ -243,11 +258,14 @@ def sweep_int(
     distribution: Distribution = "uniform",
     acc_bits: int = 32,
     seed: int = 0xA11CE,
+    rounding: RoundingMode = "trunc",
 ) -> dict[tuple[int, int | None], ErrorStats]:
     """Sweep (K, aca_window) for an INT format and return per-config error stats.
 
     Uses one draw of samples per format so the configs are evaluated on the
-    same inputs (paired comparison).
+    same inputs (paired comparison). ``rounding`` is applied to every config;
+    for ``stochastic`` each config sees the same fixed random stream so the
+    comparison stays paired.
     """
     a = int_samples(fmt, n_samples, distribution=distribution, seed=seed)
     b = int_samples(fmt, n_samples, distribution=distribution, seed=seed + 1)
@@ -260,8 +278,10 @@ def sweep_int(
     out: dict[tuple[int, int | None], ErrorStats] = {}
     for K in K_values:
         for W in aca_windows:
+            sweep_rng = random.Random(seed + 7) if rounding == "stochastic" else None
             out[(K, W)] = error_stats_int(
-                fmt, a, b, acc, K=K, aca_window=W, acc_bits=acc_bits
+                fmt, a, b, acc, K=K, aca_window=W, acc_bits=acc_bits,
+                rounding=rounding, rng=sweep_rng,
             )
     return out
 
@@ -274,12 +294,19 @@ def sweep_fp(
     distribution: Distribution = "uniform",
     scale: float = 1.0,
     seed: int = 0xB0B,
+    rounding: RoundingMode = "trunc",
 ) -> dict[int, ErrorStats]:
     """Sweep K for an FP format and return per-K error stats."""
     a = fp_samples(fmt, n_samples, distribution=distribution, scale=scale, seed=seed)
     b = fp_samples(fmt, n_samples, distribution=distribution, scale=scale, seed=seed + 1)
     acc = fp_samples(fmt, n_samples, distribution=distribution, scale=scale, seed=seed + 2)
-    return {K: error_stats_fp(fmt, a, b, acc, K=K) for K in K_values}
+    return {
+        K: error_stats_fp(
+            fmt, a, b, acc, K=K, rounding=rounding,
+            rng=random.Random(seed + 7) if rounding == "stochastic" else None,
+        )
+        for K in K_values
+    }
 
 
 # ============================================================

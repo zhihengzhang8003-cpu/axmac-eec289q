@@ -27,8 +27,12 @@ from typing import Sequence
 
 import numpy as np
 
-from .approx_mac import approx_mac_fp, approx_mac_int
+import random as _random
+
+from .approx_mac import RoundingMode, approx_mac_fp, approx_mac_int
 from .exact_mac import FPFormat, IntFormat, decode_fp, encode_fp
+
+_VALID_ROUNDING = ("trunc", "round", "stochastic")
 
 
 # ============================================================
@@ -49,6 +53,39 @@ def _wrap_int32(arr: np.ndarray, acc_bits: int) -> np.ndarray:
     return np.where(wrapped >= half, wrapped - (1 << acc_bits), wrapped)
 
 
+def truncate_products(
+    prod: np.ndarray,
+    K: int,
+    *,
+    rounding: RoundingMode = "trunc",
+    rng: "np.random.Generator | None" = None,
+) -> np.ndarray:
+    """Drop the low K bits of every product in ``prod`` under ``rounding``.
+
+    Vectorized counterpart of :func:`axmac.approx_mac._apply_rounding`:
+
+    * ``trunc``      — ``prod & ~(2^K - 1)``; rounds toward -inf, biased.
+    * ``round``      — add the correction constant 2^(K-1) first
+                       (Schulte & Swartzlander 1993); near-zero-mean error.
+    * ``stochastic`` — add a fresh uniform offset in [0, 2^K) per element
+                       (Gupta et al. 2015); needs a NumPy ``rng``.
+
+    ``& ~mask`` on NumPy int64 rounds toward -inf for signed products just as
+    Python's arbitrary-precision ints do. ``K <= 0`` is the identity.
+    """
+    if K <= 0:
+        return prod
+    if rounding not in _VALID_ROUNDING:
+        raise ValueError(f"rounding must be one of {_VALID_ROUNDING}, got {rounding!r}")
+    mask = ~((1 << K) - 1)
+    if rounding == "round":
+        prod = prod + (1 << (K - 1))
+    elif rounding == "stochastic":
+        gen = rng if rng is not None else np.random.default_rng()
+        prod = prod + gen.integers(0, 1 << K, size=prod.shape, dtype=np.int64)
+    return prod & mask
+
+
 # ============================================================
 # INT vectorized backend
 # ============================================================
@@ -61,12 +98,16 @@ def int_matmul_approx(
     K: int = 0,
     acc_bits: int = 32,
     bias: np.ndarray | None = None,
+    rounding: RoundingMode = "trunc",
+    rng: "np.random.Generator | None" = None,
 ) -> np.ndarray:
     """Integer matmul ``x @ w + bias`` with K-bit per-MAC truncation.
 
     Both ``x`` and ``w`` must already be in ``fmt``'s integer range. Returns
-    an int64 array (caller may further quantize). Bit-equivalent to looping
-    :func:`approx_mac_int` over the reduction axis with the same K.
+    an int64 array (caller may further quantize). With ``rounding="trunc"``
+    this is bit-equivalent to looping :func:`approx_mac_int` over the
+    reduction axis with the same K; ``round`` / ``stochastic`` apply the
+    error-compensated variants element-wise (see :func:`truncate_products`).
     """
     if K < 0:
         raise ValueError("K must be >= 0")
@@ -81,9 +122,7 @@ def int_matmul_approx(
     # Per-MAC product: (M, K_dim, N) — could be large; reduce one row at a time
     # for big inputs. For now keep it simple and rely on int64 capacity.
     prod = a[:, :, None] * b[None, :, :]  # (M, K_dim, N)
-    if K > 0:
-        mask = ~((1 << K) - 1)
-        prod = prod & mask  # NB: numpy int64 & with python int promotes to int64
+    prod = truncate_products(prod, K, rounding=rounding, rng=rng)
 
     accum = prod.sum(axis=1)  # (M, N)
     if bias is not None:
@@ -101,9 +140,14 @@ def int_linear_approx(
     K: int = 0,
     bias: np.ndarray | None = None,
     acc_bits: int = 32,
+    rounding: RoundingMode = "trunc",
+    rng: "np.random.Generator | None" = None,
 ) -> np.ndarray:
     """Linear (fully-connected) layer: ``y = x @ w + bias`` with K-bit truncation."""
-    return int_matmul_approx(x, w, fmt=fmt, K=K, bias=bias, acc_bits=acc_bits)
+    return int_matmul_approx(
+        x, w, fmt=fmt, K=K, bias=bias, acc_bits=acc_bits,
+        rounding=rounding, rng=rng,
+    )
 
 
 def _im2col(
@@ -143,6 +187,8 @@ def int_conv2d_approx(
     stride: int = 1,
     padding: int = 0,
     acc_bits: int = 32,
+    rounding: RoundingMode = "trunc",
+    rng: "np.random.Generator | None" = None,
 ) -> np.ndarray:
     """2-D conv via im2col + :func:`int_matmul_approx`.
 
@@ -157,7 +203,10 @@ def int_conv2d_approx(
 
     cols, out_h, out_w = _im2col(x, kh, kw, stride, padding)
     w_mat = w.reshape(c_out, c_in * kh * kw).T  # (C_in*kh*kw, C_out)
-    flat_out = int_matmul_approx(cols, w_mat, fmt=fmt, K=K, bias=bias, acc_bits=acc_bits)
+    flat_out = int_matmul_approx(
+        cols, w_mat, fmt=fmt, K=K, bias=bias, acc_bits=acc_bits,
+        rounding=rounding, rng=rng,
+    )
     return flat_out.reshape(x.shape[0], out_h, out_w, c_out).transpose(0, 3, 1, 2)
 
 
@@ -172,11 +221,14 @@ def fp_linear_approx_scalar(
     fmt: FPFormat,
     K: int = 0,
     bias_bits: np.ndarray | None = None,
+    rounding: RoundingMode = "trunc",
+    rng: "_random.Random | None" = None,
 ) -> np.ndarray:
     """Slow per-MAC FP linear that calls :func:`approx_mac_fp` directly.
 
     Inputs are bit-pattern arrays in ``fmt``'s encoding. Used to verify
     correctness on small tensors; not for production-scale inference.
+    ``rounding`` selects trunc / round / stochastic on the mantissa product.
     """
     if K < 0:
         raise ValueError("K must be >= 0")
@@ -195,7 +247,8 @@ def fp_linear_approx_scalar(
             acc = zero_bits if bias_bits is None else int(bias_bits[j])
             for k in range(kdim):
                 acc = approx_mac_fp(
-                    int(x_bits[i, k]), int(w_bits[k, j]), acc, fmt, K=K
+                    int(x_bits[i, k]), int(w_bits[k, j]), acc, fmt,
+                    K=K, rounding=rounding, rng=rng,
                 )
             out_bits[i, j] = acc
     return out_bits
@@ -277,6 +330,8 @@ def tiny_mlp_forward(
     *,
     fmt: IntFormat,
     K: "int | Sequence[int]" = 0,
+    rounding: RoundingMode = "trunc",
+    rng: "np.random.Generator | None" = None,
 ) -> np.ndarray:
     """Run an N-layer ReLU MLP forward with approximate MAC at every layer.
 
@@ -286,13 +341,16 @@ def tiny_mlp_forward(
 
     ``K`` is either a single int (the same truncation depth everywhere) or a
     per-layer sequence — Contribution B's non-uniform allocation feeds the
-    latter (see :mod:`axmac.sensitivity`).
+    latter (see :mod:`axmac.sensitivity`). ``rounding`` selects the
+    error-compensation mode for every layer (Contribution A).
     """
     h = x
     last = len(layers) - 1
     Ks = _per_layer_K(K, len(layers))
     for i, (w, b) in enumerate(layers):
-        h = int_linear_approx(h, w, fmt=fmt, K=Ks[i], bias=b)
+        h = int_linear_approx(
+            h, w, fmt=fmt, K=Ks[i], bias=b, rounding=rounding, rng=rng,
+        )
         if i != last:
             h = np.clip(h, 0, fmt.max_val).astype(np.int64)
     return h

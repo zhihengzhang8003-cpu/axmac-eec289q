@@ -39,3 +39,10 @@ Thumbs.db
 data/
 runs/
 checkpoints/
+
+# Claude Code local settings (personal machine permissions; not for the graded repo)
+.claude/settings.local.json
+
+# Reference papers — copyrighted PDFs kept local only, never redistributed.
+# The citation index reference/README.md IS tracked.
+reference/*.pdf

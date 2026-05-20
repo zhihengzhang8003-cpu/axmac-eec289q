@@ -11,6 +11,8 @@ Contracts:
 
 from __future__ import annotations
 
+import random
+
 import pytest
 
 from axmac.accuracy_eval import (
@@ -23,7 +25,7 @@ from axmac.accuracy_eval import (
     sweep_fp,
     sweep_int,
 )
-from axmac.exact_mac import BF16, FP16, FP32, INT4, INT8, INT16
+from axmac.exact_mac import BF16, FP8_E4M3, FP16, FP32, INT4, INT8, INT16
 
 
 # ============================================================
@@ -252,3 +254,120 @@ def test_error_stats_is_frozen():
     stats = ErrorStats(1, 0.0, 0.0, 0.0, 0.0, 0.0)
     with pytest.raises((AttributeError, TypeError)):
         stats.med = 0.5  # type: ignore[misc]
+
+
+# ============================================================
+# Rounding modes (Contribution A): bias compensation
+# ============================================================
+#
+# error_stats_* / sweep_* thread the `rounding` knob through to approx_mac.
+# The headline metric is `bias`: plain truncation is one-signed (a coherent
+# error that accumulates ∝ N across an inference), while `round` and
+# `stochastic` collapse it toward zero.
+
+@pytest.mark.parametrize("fmt", [INT4, INT8, INT16])
+@pytest.mark.parametrize("rounding", ["trunc", "round", "stochastic"])
+def test_int_k0_zero_error_every_rounding(fmt, rounding):
+    """K=0 ⇒ zero error for every rounding mode (regression vs exact_mac)."""
+    a = int_samples(fmt, 400, seed=1)
+    b = int_samples(fmt, 400, seed=2)
+    acc = [0] * 400
+    stats = error_stats_int(fmt, a, b, acc, K=0, rounding=rounding,
+                            rng=random.Random(0))
+    assert stats.med == 0.0
+    assert stats.rmse == 0.0
+    assert stats.bias == 0.0
+
+
+def test_int_rounding_compensates_truncation_bias():
+    """Headline of Contribution A: plain truncation has a large one-signed
+    bias (bias == MED, because every error ≥ 0); deterministic `round` and
+    `stochastic` both collapse that bias toward zero — `stochastic` most so."""
+    fmt = INT8
+    a = int_samples(fmt, 4000, seed=40)
+    b = int_samples(fmt, 4000, seed=41)
+    acc = [0] * 4000
+    K = 6
+    trunc = error_stats_int(fmt, a, b, acc, K=K, rounding="trunc")
+    rnd = error_stats_int(fmt, a, b, acc, K=K, rounding="round")
+    sto = error_stats_int(fmt, a, b, acc, K=K, rounding="stochastic",
+                          rng=random.Random(99))
+    # trunc: one-signed error, so the bias equals the mean abs error.
+    assert trunc.bias > 0.0
+    assert trunc.bias == pytest.approx(trunc.med)
+    # round / stochastic cut the coherent bias several-fold.
+    assert abs(rnd.bias) < trunc.bias / 3.0
+    assert abs(sto.bias) < trunc.bias / 5.0
+    # stochastic is genuinely zero-mean per-MAC: |bias| ≪ one LSB-field.
+    assert abs(sto.bias) < 3.0
+
+
+@pytest.mark.parametrize("rounding", ["round", "stochastic"])
+def test_int_rounding_error_still_bounded(rounding):
+    """round / stochastic trade bias for a wider error window, but the
+    per-MAC error stays bounded: round by 2^(K-1), stochastic by 2^K."""
+    fmt = INT8
+    a = int_samples(fmt, 2000, seed=50)
+    b = int_samples(fmt, 2000, seed=51)
+    acc = [0] * 2000
+    for K in [2, 4, 6]:
+        stats = error_stats_int(fmt, a, b, acc, K=K, rounding=rounding,
+                                rng=random.Random(7))
+        bound = (1 << (K - 1)) if rounding == "round" else (1 << K)
+        assert stats.max_abs_err <= bound, (K, rounding, stats.max_abs_err)
+
+
+def test_sweep_int_accepts_rounding_and_keeps_baseline():
+    """sweep_int threads `rounding` through every config; K=0 stays the
+    zero-error baseline whatever the mode."""
+    for mode in ("trunc", "round", "stochastic"):
+        res = sweep_int(INT8, [0, 4], [None], n_samples=300, rounding=mode)
+        assert res[(0, None)].med == 0.0
+        assert res[(0, None)].bias == 0.0
+
+
+def test_sweep_int_stochastic_is_reproducible():
+    """The stochastic sweep fixes its RNG seed internally, so two runs of the
+    same sweep are bit-identical (keeps the cross-config comparison paired)."""
+    r1 = sweep_int(INT8, [3, 5], [None], n_samples=300, rounding="stochastic")
+    r2 = sweep_int(INT8, [3, 5], [None], n_samples=300, rounding="stochastic")
+    for key in r1:
+        assert r1[key].bias == r2[key].bias
+        assert r1[key].rmse == r2[key].rmse
+
+
+@pytest.mark.parametrize("fmt", [FP16, FP8_E4M3])
+@pytest.mark.parametrize("rounding", ["trunc", "round", "stochastic"])
+def test_fp_k0_zero_error_every_rounding(fmt, rounding):
+    """FP K=0 ⇒ zero error for every rounding mode."""
+    a = fp_samples(fmt, 300, scale=2.0, seed=10)
+    b = fp_samples(fmt, 300, scale=2.0, seed=11)
+    acc = fp_samples(fmt, 300, scale=2.0, seed=12)
+    stats = error_stats_fp(fmt, a, b, acc, K=0, rounding=rounding,
+                           rng=random.Random(3))
+    assert stats.med == 0.0
+    assert stats.rmse == 0.0
+
+
+def test_fp_rounding_modes_produce_valid_stats():
+    """On the FP path the renormalisation RNE re-rounds the result, so the
+    strong integer-style bias does not appear; this just checks all three
+    modes run and the K>0 error is real (med > 0, within max_abs_err)."""
+    fmt = FP8_E4M3
+    a = fp_samples(fmt, 1000, scale=2.0, seed=20)
+    b = fp_samples(fmt, 1000, scale=2.0, seed=21)
+    acc = fp_samples(fmt, 1000, scale=2.0, seed=22)
+    for mode in ("trunc", "round", "stochastic"):
+        stats = error_stats_fp(fmt, a, b, acc, K=3, rounding=mode,
+                               rng=random.Random(4))
+        assert stats.med > 0.0
+        assert stats.max_abs_err >= stats.med
+
+
+def test_error_stats_rejects_unknown_rounding():
+    fmt = INT8
+    a = int_samples(fmt, 20, seed=1)
+    b = int_samples(fmt, 20, seed=2)
+    with pytest.raises(ValueError, match="rounding"):
+        error_stats_int(fmt, a, b, [0] * 20, K=2,
+                        rounding="banker")  # type: ignore[arg-type]

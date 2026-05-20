@@ -70,17 +70,18 @@ ICCV 2019) instead of a single global K.
 | # | Task | Status |
 |---|------|--------|
 | 1 | Literature index (`reference/README.md`) | done — commit 8978308 |
-| 2 | Contribution A core: `rounding` modes in `approx_mac.py` | done — commit 8978308, 193 tests pass |
-| 3 | `power_model.py`: cost of `round` (~`trunc`) vs `stochastic` (+RNG) | todo |
-| 4 | Contribution B: per-layer K + sensitivity allocation | todo |
-| 5 | Experiments: bias accumulation, 3-way rounding, FP8, Pareto | todo |
-| 6 | pytest tests for new code | todo |
-| 7 | README / proposal rewrite (FP8 narrative + recent refs) | todo |
-| 8 | FP8 formats E4M3/E5M2 in `exact_mac.py` | todo |
+| 2 | Contribution A core: `rounding` modes in `approx_mac.py` | done — commit 8978308 |
+| 3 | `power_model.py`: cost of `round` (~`trunc`) vs `stochastic` (+RNG) | done — commit 9157177 |
+| 4 | Contribution B: per-layer K + sensitivity allocation | done — commit 3fb5b83 |
+| 5 | Experiments: bias accumulation, 3-way rounding, FP8, Pareto | done — commit 695bd2b |
+| 6 | pytest tests for new code | done — commit 7ef07ca, 343 tests pass |
+| 7 | README / proposal rewrite (FP8 narrative + recent refs) | README done; proposal `.docx` pending |
+| 8 | FP8 formats E4M3/E5M2 in `exact_mac.py` | done — commit a80a680 |
 
-Suggested order: 8 → 3 → 4 → 5 → 6 → 7. The `rounding` knob still needs
-threading through `accuracy_eval.py` / `dnn_inference.py` before the
-experiments (task 5) can use it.
+All code/test/experiment tasks complete (suggested order was 8 → 3 → 4 → 5
+→ 6 → 7). The `rounding` knob was threaded through `accuracy_eval.py` /
+`dnn_inference.py` in task 5 so the experiments (task 5) can use it. The only
+open item is rewriting the one-page proposal `.docx` to match this framing.
 
 ## References
 

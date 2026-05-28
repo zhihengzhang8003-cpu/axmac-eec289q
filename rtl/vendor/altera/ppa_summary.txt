@@ -1,0 +1,51 @@
+AxMAC RTL -- PPA sweep on EP4CE10F17C8 (Cyclone IV E, 60 nm)
+Quartus Prime Lite 18.1, 50 MHz target, vectorless PowerPlay (Low confidence
+on absolute power -- treat power as indicative, area/registers as exact).
+DUT: mlp_top (toy 64->16->10 MLP, mac_array R=1 C=4 -> 4 DSP throughout).
+Generated 2026-05-28 by vendor/altera/ppa_sweep.tcl.
+
+====================================================================
+A) Rounding-mode cost  (K=6, ACA window = 32 = exact accumulator)
+====================================================================
+  mode    LogicElems  Registers  DSP   Pcore(mW)
+  trunc   1685        527        4     8.67
+  round   1731        527        4     9.20
+  stoch   1817        591        4     9.39
+
+  Deltas vs trunc baseline:
+    round : +46 LE, +0 registers   -> the deterministic correction-constant
+                                      adder (Schulte-Swartzlander). No state.
+    stoch : +132 LE, +64 registers -> a 64-bit LFSR + adder (Gupta-style
+                                      stochastic rounding). The 64 extra
+                                      registers ARE the LFSR.
+
+  Headline: round reaches stochastic's near-zero bias (see Phase-1 ModelSim
+  stochastic-mean check + accuracy_eval bias table) at ~35% of the added logic
+  and ZERO added registers. stoch's LFSR even pushes the K=6 design (1817 LE)
+  ABOVE the exact K=0 baseline (1769 LE) -- i.e. the RNG costs more logic than
+  the truncation saves. This is the quantified core of Contribution A.
+
+====================================================================
+B) ACA approximate-adder cost  (K=0, no truncation; sweep carry window)
+====================================================================
+  window  LogicElems  Registers
+  W=32    1769        582     (exact two's-complement accumulator)
+  W=8     1755        550
+  W=4     1732        534
+
+  Narrowing the ACA carry window monotonically shrinks logic+registers
+  (1769 -> 1732 LE, 582 -> 534 regs from W32 to W4). The saving is modest here
+  because the accumulator is only 32 bits x 4 PEs; it scales with accumulator
+  width and PE count.
+
+====================================================================
+Cross-cut: approximation vs exact
+====================================================================
+  Exact MAC (K=0, W=32) baseline : 1769 LE, 10.45 mW core.
+  K=6 truncation                 : 1685 LE (-84), 8.67 mW (-17% core power).
+  => truncation alone buys area + power; round keeps the win while removing
+     bias; stochastic gives back the area win to its LFSR.
+
+Caveat: PowerPlay ran vectorless (default toggle rates), flagged "Low
+confidence". For camera-ready, regenerate with a simulation VCD -> SAIF per
+config. Area / register / DSP counts are post-fit exact.

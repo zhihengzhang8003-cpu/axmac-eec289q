@@ -46,3 +46,8 @@ checkpoints/
 # Reference papers — copyrighted PDFs kept local only, never redistributed.
 # The citation index reference/README.md IS tracked.
 reference/*.pdf
+reference.zip
+
+# Local scratch / personal notes — kept on disk, not for the graded repo.
+_explore.py
+*_walkthrough.md

@@ -1,0 +1,250 @@
+================================================================================
+                    AxMAC 项目 — 参考文献清单
+================================================================================
+
+生成日期：2026-05-20
+原则：代码、proposal、README、REDESIGN 中出现的每一个公式 / 模型 / 指标
+      都必须能在此清单找到背景论文。
+
+统计：共 26 篇 —— 已下载 PDF 19 篇；需 UC Davis 图书馆获取（付费墙）7 篇。
+      PDF 存于本目录（reference/），已 gitignore（版权原因不入库）。
+      卷号 / 页码为整理所得，正式提交前请按 DOI 核对。
+      「网站」一行为该文献的权威获取地址：arXiv / Royal Society OA / HAL
+      为开放获取，可直接下载 PDF；doi.org 链接解析到出版商页面，IEEE /
+      ACM / Oxford 页面需机构账号。
+
+================================================================================
+一、精确算术与数值格式（exact_mac.py）
+================================================================================
+
+[1] O. L. MacSorley, "High-Speed Arithmetic in Binary Computers,"
+    Proc. IRE, 49(1):67-91, 1961. DOI:10.1109/JRPROC.1961.287779
+    本地文件：MacSorley_1961_HighSpeedArith.pdf  （已下载）
+    网站：https://doi.org/10.1109/JRPROC.1961.287779  （IEEE Xplore）
+    支撑：exact_mac.py — Booth 基-4 乘法器 booth_radix4_pps
+
+[2] A. D. Booth, "A Signed Binary Multiplication Technique,"
+    Q. J. Mech. Appl. Math., 4(2):236-240, 1951. DOI:10.1093/qjmam/4.2.236
+    本地文件：无  （需图书馆获取 — Oxford Academic）
+    网站：https://doi.org/10.1093/qjmam/4.2.236  （Oxford Academic）
+    支撑：exact_mac.py — Booth 编码原始文献
+
+[3] D. Kalamkar et al., "A Study of BFLOAT16 for Deep Learning Training,"
+    arXiv:1905.12322, 2019.
+    本地文件：Kalamkar_2019_bfloat16.pdf  （已下载）
+    网站：https://arxiv.org/abs/1905.12322  （arXiv，开放获取）
+    支撑：exact_mac.py — BF16 浮点格式
+
+[4] P. Micikevicius et al., "FP8 Formats for Deep Learning,"
+    arXiv:2209.05433, 2022.
+    本地文件：Micikevicius_2022_FP8Formats.pdf  （已下载）
+    网站：https://arxiv.org/abs/2209.05433  （arXiv，开放获取）
+    支撑：exact_mac.py — FP8 E4M3 / E5M2 格式（FP8 现代化）
+
+[*] IEEE 标准 754-2019，"IEEE Standard for Floating-Point Arithmetic."
+    （标准文档，非论文）
+    网站：https://standards.ieee.org/ieee/754/6210/  （IEEE SA）
+    支撑：exact_mac.py — IEEE 754 浮点编解码
+
+================================================================================
+二、近似乘法器与加法器（approx_mac.py — baseline 与贡献 A）
+================================================================================
+
+[5] H. R. Mahdiani, A. Ahmadi, S. M. Fakhraie, C. Lucas, "Bio-Inspired
+    Imprecise Computational Blocks for Efficient VLSI Implementation of
+    Soft-Computing Applications," IEEE TCAS-I, 57(4):850-862, 2010.
+    DOI:10.1109/TCSI.2009.2027626
+    本地文件：无  （需图书馆获取 — IEEE）
+    网站：https://doi.org/10.1109/TCSI.2009.2027626  （IEEE Xplore）
+    支撑：approx_mac.py — 截断乘法器（贡献 A 的 baseline）
+
+[6] A. B. Kahng, S. Kang, "Accuracy-Configurable Adder for Approximate
+    Arithmetic Designs," DAC, 2012. DOI:10.1145/2228360.2228509
+    本地文件：Kahng_2012_ACA.pdf  （已下载）
+    网站：https://doi.org/10.1145/2228360.2228509  （ACM DL；开放镜像见
+          UCSD VLSI CAD 出版页 https://vlsicad.ucsd.edu/Publications/）
+    支撑：approx_mac.py — ACA 近似加法器 aca_add（baseline）
+
+[7] M. J. Schulte, E. E. Swartzlander, "Truncated Multiplication with
+    Correction Constant," VLSI Signal Processing VI, 1993.
+    DOI:10.1109/VLSISP.1993.404467
+    本地文件：无  （需图书馆获取 — IEEE）
+    网站：https://doi.org/10.1109/VLSISP.1993.404467  （IEEE Xplore）
+    支撑：贡献 A — round 模式（截断 + 补偿常数 2^(K-1)，舍入到最近）
+
+[8] S. Hashemi, R. I. Bahar, S. Reda, "DRUM: A Dynamic Range Unbiased
+    Multiplier for Approximate Applications," ICCAD, 2015.
+    DOI:10.1109/ICCAD.2015.7372600
+    本地文件：无  （需图书馆获取 — IEEE）
+    网站：https://doi.org/10.1109/ICCAD.2015.7372600  （IEEE Xplore）
+    支撑：贡献 A — 无偏乘法器使误差在累加中抵消（核心论据）
+
+================================================================================
+三、随机舍入（approx_mac.py — 贡献 A 的 stochastic 模式）
+================================================================================
+
+[9] S. Gupta, A. Agrawal, K. Gopalakrishnan, P. Narayanan, "Deep Learning
+    with Limited Numerical Precision," ICML, 2015. arXiv:1502.02551
+    本地文件：Gupta_2015_LimitedPrecision.pdf  （已下载）
+    网站：https://arxiv.org/abs/1502.02551  （arXiv，开放获取）
+    支撑：approx_mac.py — 贡献 A 的 stochastic 舍入模式（去偏技术来源）
+
+[10] M. Croci, M. Fasi, N. J. Higham, T. Mary, M. Mikaitis, "Stochastic
+     rounding: implementation, error analysis and applications,"
+     Royal Society Open Science, 9(3):211631, 2022. DOI:10.1098/rsos.211631
+     本地文件：Croci_2022_StochasticRounding.pdf  （已下载）
+     网站：https://doi.org/10.1098/rsos.211631
+           （Royal Society Open Science，开放获取）
+     支撑：approx_mac.py / power_model.py — stochastic 模式误差分析与硬件代价
+
+================================================================================
+四、功耗模型（power_model.py）
+================================================================================
+
+[11] A. P. Chandrakasan, S. Sheng, R. W. Brodersen, "Low-Power CMOS Digital
+     Design," IEEE JSSC, 27(4):473-484, 1992. DOI:10.1109/4.126534
+     本地文件：Chandrakasan_1992_LowPowerCMOS.pdf  （已下载）
+     网站：https://doi.org/10.1109/4.126534  （IEEE Xplore）
+     支撑：power_model.py — 动态功耗 P = alpha * C * V^2 * f
+
+[12] F. N. Najm, "A Survey of Power Estimation Techniques in VLSI Circuits,"
+     IEEE T-VLSI, 2(4):446-455, 1994. DOI:10.1109/92.335013
+     本地文件：Najm_1994_PowerEstSurvey.pdf  （已下载）
+     网站：https://doi.org/10.1109/92.335013  （IEEE Xplore）
+     支撑：power_model.py — 开关活动功耗估计
+
+[13] M. Horowitz, "Computing's Energy Problem (and what we can do about it),"
+     ISSCC, 2014. DOI:10.1109/ISSCC.2014.6757323
+     本地文件：无  （需图书馆获取 — IEEE）
+     网站：https://doi.org/10.1109/ISSCC.2014.6757323  （IEEE Xplore）
+     支撑：power_model.py — 45 nm 基准每操作能耗
+
+================================================================================
+五、误差指标（accuracy_eval.py）
+================================================================================
+
+[14] J. Liang, J. Han, F. Lombardi, "New Metrics for the Reliability of
+     Approximate and Probabilistic Adders," IEEE T-Computers,
+     62(9):1760-1771, 2013. DOI:10.1109/TC.2012.146
+     本地文件：Liang_2013_ApproxAdderMetrics.pdf  （已下载）
+     网站：https://doi.org/10.1109/TC.2012.146  （IEEE Xplore）
+     支撑：accuracy_eval.py — MED / NMED 误差指标定义
+
+================================================================================
+六、DNN 推理与整数量化（dnn_inference.py）
+================================================================================
+
+[15] B. Jacob et al., "Quantization and Training of Neural Networks for
+     Efficient Integer-Arithmetic-Only Inference," CVPR, 2018.
+     arXiv:1712.05877
+     本地文件：Jacob_2018_IntegerQuant.pdf  （已下载）
+     网站：https://arxiv.org/abs/1712.05877  （arXiv，开放获取）
+     支撑：dnn_inference.py — 整数量化
+
+[16] Y. Bengio, N. Leonard, A. Courville, "Estimating or Propagating
+     Gradients Through Stochastic Neurons for Conditional Computation,"
+     arXiv:1308.3432, 2013.
+     本地文件：Bengio_2013_STE.pdf  （已下载）
+     网站：https://arxiv.org/abs/1308.3432  （arXiv，开放获取）
+     支撑：dnn_inference.py — 直通梯度估计（STE 反向）
+
+[17] K. Chellapilla, S. Puri, P. Simard, "High Performance Convolutional
+     Neural Networks for Document Processing," IWFHR, 2006.
+     HAL: inria-00112631
+     本地文件：无  （需获取 — HAL）
+     网站：https://hal.inria.fr/inria-00112631  （HAL，开放获取；
+           曾返回 500/HTML，可稍后重试）
+     支撑：dnn_inference.py — im2col 卷积
+
+================================================================================
+七、层级混合精度 / 敏感度分配（贡献 B — sensitivity.py）
+================================================================================
+
+[18] V. Mrazek, Z. Vasicek, L. Sekanina, M. A. Hanif, M. Shafique, "ALWANN:
+     Automatic Layer-Wise Approximation of DNN Accelerators without
+     Retraining," ICCAD, 2019. arXiv:1907.07229
+     本地文件：Mrazek_2019_ALWANN.pdf  （已下载）
+     网站：https://arxiv.org/abs/1907.07229  （arXiv，开放获取）
+     支撑：贡献 B — 层级非均匀近似分配（直接对标）
+
+[19] Z. Dong, Z. Yao, A. Gholami, M. Mahoney, K. Keutzer, "HAWQ: Hessian
+     AWare Quantization with Mixed-Precision," ICCV, 2019. arXiv:1905.03696
+     本地文件：Dong_2019_HAWQ.pdf  （已下载）
+     网站：https://arxiv.org/abs/1905.03696  （arXiv，开放获取）
+     支撑：贡献 B — 逐层敏感度分析
+
+[20] Z. Yao, Z. Dong, Z. Zheng, A. Gholami, et al., "HAWQ-V3: Dyadic Neural
+     Network Quantization," ICML, 2021. arXiv:2011.10680
+     本地文件：Yao_2021_HAWQv3.pdf  （已下载）
+     网站：https://arxiv.org/abs/2011.10680  （arXiv，开放获取）
+     支撑：贡献 B — 整数化混合精度敏感度分配
+
+[21] K. Wang, Z. Liu, Y. Lin, J. Lin, S. Han, "HAQ: Hardware-Aware Automated
+     Quantization with Mixed Precision," CVPR, 2019. arXiv:1811.08886
+     本地文件：Wang_2019_HAQ.pdf  （已下载）
+     网站：https://arxiv.org/abs/1811.08886  （arXiv，开放获取）
+     支撑：贡献 B — 混合精度预算分配
+
+================================================================================
+八、动机背景：LLM 量化与综述（引言）
+================================================================================
+
+[22] E. Frantar, S. Ashkboos, T. Hoefler, D. Alistarh, "GPTQ: Accurate
+     Post-Training Quantization for Generative Pre-trained Transformers,"
+     ICLR, 2023. arXiv:2210.17323
+     本地文件：Frantar_2023_GPTQ.pdf  （已下载）
+     网站：https://arxiv.org/abs/2210.17323  （arXiv，开放获取）
+     支撑：引言 — FP8 / LLM 量化动机
+
+[23] G. Xiao, J. Lin, M. Seznec, H. Wu, J. Demouth, S. Han, "SmoothQuant:
+     Accurate and Efficient Post-Training Quantization for Large Language
+     Models," ICML, 2023. arXiv:2211.10438
+     本地文件：Xiao_2023_SmoothQuant.pdf  （已下载）
+     网站：https://arxiv.org/abs/2211.10438  （arXiv，开放获取）
+     支撑：引言 — LLM 量化动机
+
+[24] J. Lin, J. Tang, H. Tang, S. Yang, et al., "AWQ: Activation-aware
+     Weight Quantization for On-Device LLM Compression and Acceleration,"
+     MLSys, 2024. arXiv:2306.00978
+     本地文件：Lin_2024_AWQ.pdf  （已下载）
+     网站：https://arxiv.org/abs/2306.00978  （arXiv，开放获取）
+     支撑：引言 — LLM 量化动机
+
+[25] S. Mittal, "A Survey of Techniques for Approximate Computing,"
+     ACM Computing Surveys, 48(4):62, 2016. DOI:10.1145/2893356
+     本地文件：无  （需图书馆获取 — ACM）
+     网站：https://doi.org/10.1145/2893356  （ACM Digital Library）
+     支撑：引言 — 近似计算综述背景
+
+[26] G. Armeniakos, G. Zervakis, D. Soudris, J. Henkel, "Hardware
+     Approximate Techniques for Deep Neural Network Accelerators: A Survey,"
+     ACM Computing Surveys, 55(4):83, 2022. arXiv:2203.08737
+     本地文件：Armeniakos_2022_ApproxDNNSurvey.pdf  （已下载）
+     网站：https://arxiv.org/abs/2203.08737  （arXiv，开放获取）
+     支撑：引言 — 近似 DNN 加速器最新综述
+
+================================================================================
+承重文献（项目论证的关键）
+================================================================================
+
+baseline 复现   ：[5] Mahdiani（截断乘法器）、[6] Kahng（ACA 加法器）
+贡献 A 支撑      ：[7] Schulte（补偿常数）、[8] DRUM、[9] Gupta、[10] Croci
+贡献 B 支撑      ：[18] ALWANN、[19] HAWQ、[20] HAWQ-V3、[21] HAQ
+误差指标正名    ：[14] Liang-Han-Lombardi
+FP8 现代化      ：[4] Micikevicius
+
+================================================================================
+需 UC Davis 图书馆获取（付费墙，7 篇）
+================================================================================
+
+[2]  Booth 1951        — Oxford Academic   https://doi.org/10.1093/qjmam/4.2.236
+[5]  Mahdiani 2010     — IEEE Xplore       https://doi.org/10.1109/TCSI.2009.2027626
+[7]  Schulte 1993      — IEEE Xplore       https://doi.org/10.1109/VLSISP.1993.404467
+[8]  DRUM 2015         — IEEE Xplore       https://doi.org/10.1109/ICCAD.2015.7372600
+[13] Horowitz 2014     — IEEE Xplore       https://doi.org/10.1109/ISSCC.2014.6757323
+[17] Chellapilla 2006  — HAL               https://hal.inria.fr/inria-00112631
+[25] Mittal 2016       — ACM DL            https://doi.org/10.1145/2893356
+
+================================================================================
+（清单末尾）
+================================================================================

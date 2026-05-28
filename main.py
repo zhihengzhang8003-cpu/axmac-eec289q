@@ -24,7 +24,7 @@ from pathlib import Path
 
 import numpy as np
 
-from axmac.dnn_inference import tiny_mlp_forward
+from axmac.dnn_inference import quantize_to_int, tiny_mlp_forward
 from axmac.exact_mac import BF16, FP16, FP32, INT4, INT8, INT16
 from axmac.pareto import (
     DesignPoint,
@@ -195,6 +195,136 @@ def section_mlp_inference() -> list[dict]:
 
 
 # ============================================================
+# D) Unified MLP K-sweep: INT4 / INT8 / INT16 vs FP32 ground truth
+# ============================================================
+#
+# Addresses the methodology critique that NMED-based Pareto is unfair across
+# integer formats: NMED divides by per-format dynamic_range, so an absolute
+# error of 1 LSB becomes NMED=2% in INT4 but NMED=1e-10 in INT16 — even
+# though the physical impact on a downstream DNN is the same.
+#
+# Here every (fmt, K) configuration is scored by argmax agreement against a
+# single FP32 baseline, computed by plain numpy. This is a task-level metric
+# with identical physical meaning across all integer precisions, so the
+# resulting Pareto front is the one a hardware/ML team would actually use to
+# pick a precision-approximation operating point.
+
+def _pareto_unified(rows: list[dict]) -> list[dict]:
+    """Non-dominated subset on (energy_per_inference_pJ, error_rate)."""
+    front: list[dict] = []
+    for i, p in enumerate(rows):
+        dominated = False
+        for j, q in enumerate(rows):
+            if i == j:
+                continue
+            if (q["energy_per_inference_pJ"] <= p["energy_per_inference_pJ"]
+                and q["error_rate"] <= p["error_rate"]
+                and (q["energy_per_inference_pJ"] < p["energy_per_inference_pJ"]
+                     or q["error_rate"] < p["error_rate"])):
+                dominated = True
+                break
+        if not dominated:
+            front.append(p)
+    return front
+
+
+def section_mlp_unified() -> tuple[list[dict], list[dict]]:
+    """Task-level K-sweep across INT4/INT8/INT16 with FP32 as ground truth."""
+    print("\n=== D) Unified MLP K-sweep (INT4 / INT8 / INT16 vs FP32) ===")
+    rng = np.random.default_rng(0xCAFE)
+    batch = 64
+
+    # 1) Generate one set of float "semantic" data; every fmt quantizes from it.
+    x_float = rng.uniform(0.0, 1.0, size=(batch, 784))
+    x_float = np.where(rng.random((batch, 784)) < 0.5, 0.0, x_float)
+
+    w1_f = rng.uniform(-0.25, 0.25, size=(784, 128))
+    b1_f = rng.uniform(-1.0, 1.0, size=(128,))
+    w2_f = rng.uniform(-0.25, 0.25, size=(128, 32))
+    b2_f = rng.uniform(-1.0, 1.0, size=(32,))
+    w3_f = rng.uniform(-0.25, 0.25, size=(32, 10))
+    b3_f = rng.uniform(-1.0, 1.0, size=(10,))
+    layers_f = [(w1_f, b1_f), (w2_f, b2_f), (w3_f, b3_f)]
+
+    # 2) FP32 ground truth via plain numpy (no quantization, no approximation).
+    h = x_float
+    for i, (w, b) in enumerate(layers_f):
+        h = h @ w + b
+        if i != len(layers_f) - 1:
+            h = np.maximum(0.0, h)
+    pred_truth = h.argmax(axis=1)
+    print(f"FP32 truth argmax distribution: "
+          f"{np.bincount(pred_truth, minlength=10).tolist()}")
+
+    macs_per_inference = sum(w.shape[0] * w.shape[1] for (w, _) in layers_f)
+    print(f"batch={batch}, MACs/inference={macs_per_inference:,}")
+
+    # 3) Per-fmt: quantize once at fmt's scale, then sweep K.
+    rows: list[dict] = []
+    for fmt in [INT4, INT8, INT16]:
+        x_scale = fmt.max_val // 2
+        w_scale = fmt.max_val
+        b_scale = fmt.max_val // 2
+        x_int = quantize_to_int(x_float * x_scale, fmt)
+        layers_int = [
+            (quantize_to_int(w * w_scale, fmt),
+             quantize_to_int(b * b_scale, fmt))
+            for w, b in layers_f
+        ]
+
+        for K in [0, 1, 2, 3, 4, 5, 6]:
+            y = tiny_mlp_forward(x_int, layers_int, fmt=fmt, K=K)
+            pred = y.argmax(axis=1)
+            agreement = float(np.mean(pred == pred_truth))
+            e_per_mac = mac_int_energy(fmt, K=K).total_pJ
+            e_per_inference_pJ = e_per_mac * macs_per_inference
+            rows.append(dict(
+                fmt=fmt.name,
+                K=K,
+                agreement_vs_fp=agreement,
+                error_rate=1.0 - agreement,
+                energy_per_mac_pJ=e_per_mac,
+                energy_per_inference_pJ=e_per_inference_pJ,
+            ))
+            print(
+                f"  {fmt.name:6s} K={K}:  agreement = {agreement * 100:5.1f}%   "
+                f"E/MAC = {e_per_mac:.4f} pJ   "
+                f"E/inference = {e_per_inference_pJ / 1e3:.3f} nJ"
+            )
+
+    # 4) Pareto front on (energy_per_inference, 1 - accuracy).
+    front = _pareto_unified(rows)
+    front_sorted = sorted(front, key=lambda r: r["energy_per_inference_pJ"])
+
+    # 5) Persist.
+    csv_path = RESULTS_DIR / "mlp_unified.csv"
+    with csv_path.open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        for r in rows:
+            w.writerow(r)
+    print(f"wrote {csv_path}  ({len(rows)} rows)")
+
+    pareto_path = RESULTS_DIR / "mlp_unified_pareto.csv"
+    with pareto_path.open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        for r in front_sorted:
+            w.writerow(r)
+    print(f"wrote {pareto_path}  ({len(front_sorted)} rows)")
+
+    # 6) Console summary of the unified front.
+    print("\n--- Unified Pareto front (energy/inference vs 1-accuracy) ---")
+    for r in front_sorted:
+        print(
+            f"  {r['fmt']:6s} K={r['K']}  "
+            f"E={r['energy_per_inference_pJ'] / 1e3:6.3f} nJ  "
+            f"agreement={r['agreement_vs_fp'] * 100:5.1f}%"
+        )
+    return rows, front_sorted
+
+
+# ============================================================
 # Entry point
 # ============================================================
 
@@ -210,6 +340,7 @@ def main() -> None:
     fp_front_txt = _print_front("FP (energy, NMED)", fp_front)
 
     mlp_rows = section_mlp_inference()
+    unified_rows, unified_front = section_mlp_unified()
 
     # Human-readable summary log.
     summary_lines = [
@@ -217,7 +348,9 @@ def main() -> None:
         "=" * 60,
         f"INT sweep:  {len(int_points)} configs, front size {len(int_front)}",
         f"FP sweep:   {len(fp_points)} configs, front size {len(fp_front)}",
-        f"MLP K-sweep: {len(mlp_rows)} K values",
+        f"MLP K-sweep (INT8): {len(mlp_rows)} K values",
+        f"Unified MLP K-sweep (INT4/8/16 vs FP32): "
+        f"{len(unified_rows)} configs, front size {len(unified_front)}",
         "",
         int_front_txt,
         "",
@@ -231,6 +364,14 @@ def main() -> None:
             f"NRMSE={r['logit_nrmse']:.4f}  "
             f"E/MAC={r['energy_per_mac_pJ']:.4f} pJ  "
             f"E/inference={r['energy_per_inference_pJ'] / 1e3:.3f} nJ"
+        )
+    summary_lines.append("")
+    summary_lines.append("--- Unified MLP Pareto front (INT4/8/16 vs FP32) ---")
+    for r in unified_front:
+        summary_lines.append(
+            f"  {r['fmt']:6s} K={r['K']}  "
+            f"E={r['energy_per_inference_pJ'] / 1e3:6.3f} nJ  "
+            f"agreement={r['agreement_vs_fp'] * 100:5.1f}%"
         )
     summary_text = "\n".join(summary_lines)
     (RESULTS_DIR / "run_summary.txt").write_text(summary_text, encoding="utf-8")

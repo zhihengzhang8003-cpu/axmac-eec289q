@@ -1,0 +1,7 @@
+label,mode,K,aca_w,logic_elements,registers,dsp9,total_thermal_mw,core_dynamic_mw
+trunc_K6,0,6,32,1685,527,4,68.68,8.67
+round_K6,1,6,32,1731,527,4,68.31,9.20
+stoch_K6,2,6,32,1817,591,4,68.50,9.39
+acaW32_K0,0,0,32,1769,582,4,70.19,10.45
+acaW8_K0,0,0,8,1755,550,4,68.94,8.91
+acaW4_K0,0,0,4,1732,534,4,68.31,9.19

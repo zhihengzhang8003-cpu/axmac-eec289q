@@ -1,0 +1,41 @@
+# Icarus / Verilator / Vivado / Quartus build artifacts
+build/
+sim_build/
+work/
+*.vvp
+*.vcd
+*.fst
+*.jou
+*.log
+*.str
+*.dump
+*.bak
+
+# ModelSim sim artifacts (generated in tb/ when running vsim)
+transcript
+*.wlf
+vsim.wlf
+modelsim.ini
+
+# Vivado project / impl outputs
+*.cache/
+*.hw/
+*.ip_user_files/
+*.runs/
+*.sim/
+*.xpr
+*.bit
+*.ltx
+
+# Quartus project outputs
+db/
+incremental_db/
+output_files/
+*.qpf
+*.qsf.bak
+*.sof
+*.pof
+*.rpt
+*.summary
+*.pin
+*.smsg

@@ -77,12 +77,12 @@ ICCV 2019) instead of a single global K.
 | 6 | pytest tests for new code | done — commit 7ef07ca, **343 passed** |
 | 7 | README + proposal `.docx` rewrite (FP8 narrative + recent refs) | done — commit 86620ea / 3cfa1d3 |
 | 8 | FP8 formats E4M3/E5M2 in `exact_mac.py` | done — commit a80a680 |
-| 9 | RTL Verilog implementation (mac_unit/aca_adder/mac_array/mlp_top + testbenches + Quartus scripts) | code written — commit 0c2325a; **simulation + board burn pending** |
+| 9 | RTL Verilog implementation (mac_unit/aca_adder/mac_array/mlp_top + testbenches + Quartus scripts) | code written commit 0c2325a; **ModelSim simulation all PASS** 2026-06-01; board burn pending |
 | 10 | Unified INT4/8/16 vs FP32 task-level K-sweep (`main.py` Section D) | done — commit d1d51e4 |
-| 11 | RTL board demo wrapper (mlp_top_demo, LED display, 野火征途 Pro) | code written — commit 95ec92e; **board burn pending** |
+| 11 | RTL board demo wrapper (mlp_top_demo, LED display, 野火征途 Pro) | code written commit 95ec92e; **ModelSim simulation PASS** 2026-06-01; board burn pending |
 | 12 | Pareto v2: cross-format NRMSE, FP8 sweep, per-format fronts | done — commit 931ac3a |
 
-Python/experiment tasks complete. RTL code written but **simulation (Icarus/ModelSim) and board burn (Quartus → EP4CE10) not yet executed**.
+Python/experiment tasks complete. RTL simulation (ModelSim, all 5 testbenches PASS 2026-06-01). **Remaining: board burn (Quartus → EP4CE10 野火征途) and Vivado/xc7a100t flow.**
 
 ## References
 

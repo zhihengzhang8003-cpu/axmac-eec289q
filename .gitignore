@@ -51,3 +51,6 @@ reference.zip
 # Local scratch / personal notes — kept on disk, not for the graded repo.
 _explore.py
 *_walkthrough.md
+
+# Teammate file drop — reviewed and merged; raw folder not part of the repo.
+FromTeamMate/

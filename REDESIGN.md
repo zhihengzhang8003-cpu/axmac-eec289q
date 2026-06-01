@@ -82,7 +82,7 @@ ICCV 2019) instead of a single global K.
 | 11 | RTL board demo wrapper (mlp_top_demo, LED display, 野火征途 Pro) | code written commit 95ec92e; **ModelSim simulation PASS** 2026-06-01; board burn pending |
 | 12 | Pareto v2: cross-format NRMSE, FP8 sweep, per-format fronts | done — commit 931ac3a |
 
-Python/experiment tasks complete. RTL simulation (ModelSim, all 5 testbenches PASS 2026-06-01). **Remaining: board burn (Quartus → EP4CE10 野火征途) and Vivado/xc7a100t flow.**
+Python/experiment tasks complete. RTL simulation (ModelSim, all 5 testbenches PASS 2026-06-01). **Remaining: Quartus synthesis + board burn (EP4CE10 野火征途).**
 
 ## References
 

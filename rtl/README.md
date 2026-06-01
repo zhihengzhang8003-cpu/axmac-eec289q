@@ -1,16 +1,13 @@
 # AxMAC — RTL Implementation
 
 Hardware implementation of the AxMAC arithmetic primitives, alongside the
-Python testbed in `../axmac/`. Two parallel flows share the same RTL:
+Python testbed in `../axmac/`. Target: Altera Cyclone IV EP4CE10F17C8 (野火征途 Pro).
 
-| Flow                  | Vendor   | Target chip   | Toolchain               | Purpose |
-|-----------------------|----------|---------------|-------------------------|---------|
-| High-performance sim  | Xilinx   | xc7a100t      | Vivado ML Standard      | Paper-grade PPA: post-impl simulation + SAIF + Power Report on 28 nm Artix-7. Replaces the analytical `power_model.py` numbers in the paper's Contribution A. |
-| Physical run          | Altera   | EP4CE10       | Quartus Prime Lite      | Demo on 野火征途 board: bitstream + LED/UART showing the toy MLP classifying a held-out input. PowerPlay numbers are 60 nm LP, used only for *relative* trunc/round/stochastic comparison. |
+| Flow         | Vendor | Target chip | Toolchain          | Purpose |
+|--------------|--------|-------------|--------------------|---------|
+| Physical run | Altera | EP4CE10     | Quartus Prime Lite | Demo on 野火征途: bitstream + LED display showing the toy MLP classifying a held-out input. PowerPlay numbers (60 nm LP) used for relative trunc/round/stochastic comparison. |
 
-Eighty percent of the RTL is vendor-agnostic Verilog and lives in `src/`. Only
-the memory-IP wrapper and the top-level pin/timing constraints are duplicated
-per vendor.
+Vendor-agnostic Verilog lives in `src/`. Board-specific pin/timing constraints are in `vendor/altera/`.
 
 ## Directory layout
 
@@ -35,16 +32,15 @@ rtl/
     mac_int8_stoch.csv       # 1536 rows (distributional check)
     aca.csv                  # 1024 rows (W=4/8/16/32)
     mlp_toy/                 # 11 files: 64->16->10 x/w/b + 6 (K, mode) outputs
-  build/                     # iverilog .vvp build artifacts (gitignored)
+  build/                     # ModelSim work libs + Quartus artifacts (gitignored)
   vendor/
-    xilinx/                  # Xilinx-only files (TODO Phase 5a)
-      bram_xpm.v             # XPM_MEMORY macro wrapper
-      mlp_top_a100t.xdc      # pin + timing constraints for xc7a100t
-      build_vivado.tcl       # synth + impl + SAIF + Power Report
-    altera/                  # Altera-only files (TODO Phase 5b)
-      bram_altsync.v         # altsyncram megafunction wrapper
-      mlp_top_ep4ce10.qsf    # pin assignments for 野火征途
-      build_quartus.tcl      # synth + .sof + PowerPlay
+    altera/                  # Altera / Quartus files
+      build_demo.tcl         # full flow (map+fit+asm+sta) → demo.sof
+      build_quartus.tcl      # analysis+synthesis only (mac_array area estimate)
+      mlp_top_ep4ce10_pins.tcl  # board pin assignments (clk/rst_n/led[3:0])
+      ppa_sweep.tcl          # rounding-mode PPA sweep script
+      ppa_results.csv        # PPA data (LE / registers / power by mode)
+      ppa_summary.txt        # human-readable PPA summary
 ```
 
 ## Status
@@ -57,8 +53,7 @@ rtl/
 | 3 | mac_array.v + tb_mac_array.sv (4×4 output-stationary, inline reference) | **PASS** — 16 cases (ModelSim 2026-06-01) |
 | 4 | mlp_top.v + tb_mlp_top.sv (FSM + tiling, toy 64→16→10) | **PASS** — 10/10 outputs bit-exact vs Python golden (ModelSim 2026-06-01) |
 | 4b | mlp_top_demo.v + tb_mlp_top_demo.sv (board wrapper, LED display) | **PASS** — led_class=1 matches argmax of golden logits (ModelSim 2026-06-01) |
-| 5a | Vivado synth + impl + SAIF + Power Report on xc7a100t | **TODO** — `vendor/xilinx/` empty; waits for Vivado install |
-| 5b | Quartus synth + .sof + PowerPlay on EP4CE10 + 野火征途 board burn | **TODO** — synthesis scripts + pin constraints ready; **bitstream has NOT been programmed to board** |
+| 5 | Quartus synth + .sof + board burn on EP4CE10 (野火征途) | **TODO** — scripts + pin constraints ready; running synthesis now |
 
 ## Golden CSV contract
 
@@ -77,9 +72,7 @@ in this directory.
 
 The toy MLP topology is **64 → 16 → 10**. It is deliberately small enough to
 fit in the 23 multipliers and 414 Kbit of memory on EP4CE10, and big enough
-that tiling and FSM logic are non-trivial. The xc7a100t flow runs the same
-RTL and the same golden, plus the larger 784 → 128 → 32 → 10 MLP from the
-Python project (instantiated with a 16×16 array instead of 4×4).
+that tiling and FSM logic are non-trivial.
 
 Regenerate the golden whenever the Python-side reference changes:
 
@@ -91,10 +84,9 @@ py -3.14 rtl/golden/export_golden.py
 
 | Tool | Why | Status |
 |------|-----|--------|
-| **Icarus Verilog** | Fastest local simulator for Phase 1-4 unit tests; no admin needed | **Required before any test runs.** Install from https://bleyer.org/icarus/ (Windows installer ~30 MB). |
-| **Vivado ML Standard 2024.x** | Phase 5a synth/impl/power report on xc7a100t | Download from https://www.xilinx.com/support/download.html (~50 GB). Free tier covers xc7a100t. |
-| **Quartus Prime Lite 22.1** | Phase 5b synth + bitstream + PowerPlay for EP4CE10 | Download from https://www.intel.com/content/www/us/en/software-kit/795188/ (~7 GB; ships with ModelSim-Altera Starter). |
-| ~~cocotb~~ | Was the initial testbench plan | **Abandoned** — cocotb 2.0.1 requires Python ≤ 3.13, but the project uses 3.14. The `test_*.py` file is kept as reference; the live testbenches are pure SystemVerilog `tb_*.sv` instead. |
+| **ModelSim-Altera 10.5b** | Simulation (all testbenches) | Installed at `E:\Quart\modelsim_ase\`; use junction `E:\axmac_rtl` to bypass Unicode-path bug |
+| **Quartus Prime Lite 18.1** | Synthesis + bitstream + PowerPlay for EP4CE10 | Installed at `E:\Quart\quartus\` |
+| ~~cocotb~~ | Was the initial testbench plan | **Abandoned** — requires Python ≤ 3.13; project uses 3.14 |
 
 ## How the testbenches are structured
 
@@ -105,7 +97,7 @@ ModelSim-Altera** — only `run_tests.py`'s simulator backend changes per
 flow. `tb_mac_array.sv` computes its reference inline (small enough), so it
 doesn't need a golden file; the others read `golden/*.csv`.
 
-## How to run the tests (once Icarus is installed)
+## How to run the tests
 
 ```powershell
 py rtl/tb/run_tests.py                   # run every available test

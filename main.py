@@ -7,13 +7,16 @@ breaks Python's startup if used as cwd, see README):
 
     python -m main
 
-Outputs:
-    experiments/results/int_sweep.csv     — every INT (fmt, K, W) config
-    experiments/results/fp_sweep.csv      — every FP (fmt, K) config
-    experiments/results/int_pareto.csv    — non-dominated subset of INT
-    experiments/results/fp_pareto.csv     — non-dominated subset of FP
-    experiments/results/mlp_inference.csv — per-K MLP output divergence
-    experiments/results/run_summary.txt   — human-readable summary
+Outputs
+-------
+experiments/results/int_sweep.csv          — every INT (fmt, K, W) config
+experiments/results/fp_sweep.csv           — every FP (fmt, K) config
+experiments/results/int_pareto.csv         — global non-dominated INT subset
+experiments/results/fp_pareto.csv          — global non-dominated FP subset
+experiments/results/int_pareto_<fmt>.csv   — per-format INT fronts
+experiments/results/fp_pareto_<fmt>.csv    — per-format FP fronts
+experiments/results/mlp_inference.csv      — per-K MLP output divergence
+experiments/results/run_summary.txt        — human-readable summary
 """
 
 from __future__ import annotations
@@ -25,10 +28,12 @@ from pathlib import Path
 import numpy as np
 
 from axmac.dnn_inference import quantize_to_int, tiny_mlp_forward
-from axmac.exact_mac import BF16, FP16, FP32, INT4, INT8, INT16
+from axmac.exact_mac import BF16, FP8_E4M3, FP8_E5M2, FP16, FP32, INT4, INT8, INT16
 from axmac.pareto import (
     DesignPoint,
+    global_front,
     pareto_front,
+    per_format_fronts,
     sort_front_by_energy,
     sweep_fp_designs,
     sweep_int_designs,
@@ -56,6 +61,7 @@ def _write_designpoint_csv(path: Path, points: list[DesignPoint]) -> None:
             "fmt", "is_fp", "K", "aca_window",
             "energy_pJ", "mult_pJ", "add_pJ",
             "med", "rmse", "nmed", "max_abs",
+            "nrmse", "rel_bias",
         ])
         for p in points:
             w.writerow([
@@ -68,19 +74,21 @@ def _write_designpoint_csv(path: Path, points: list[DesignPoint]) -> None:
                 f"{p.error_rmse:.6e}",
                 f"{p.error_nmed:.6e}",
                 f"{p.error_max_abs:.6e}",
+                f"{p.error_nrmse:.6e}",
+                f"{p.error_rel_bias:.6e}",
             ])
 
 
 def _print_front(label: str, front: list[DesignPoint]) -> str:
-    lines = [f"--- {label} Pareto front ({len(front)} points) ---"]
+    lines = [f"--- {label} ({len(front)} points) ---"]
     for p in sort_front_by_energy(front):
         w = "—" if p.aca_window is None else f"W={p.aca_window}"
         lines.append(
             f"  {p.fmt_name:6s} K={p.K} {w:5s} "
             f"E={p.energy_pJ:7.4f} pJ  "
-            f"MED={p.error_med:10.4g}  "
-            f"NMED={p.error_nmed:10.4e}  "
-            f"RMSE={p.error_rmse:10.4g}"
+            f"NRMSE={p.error_nrmse:10.4e}  "
+            f"bias={p.error_rel_bias:+.3e}  "
+            f"MED={p.error_med:10.4g}"
         )
     text = "\n".join(lines)
     print(text)
@@ -94,17 +102,27 @@ def _print_front(label: str, front: list[DesignPoint]) -> str:
 def section_int_sweep() -> tuple[list[DesignPoint], list[DesignPoint]]:
     print("\n=== A) INT design-space sweep ===")
     fmts = [INT4, INT8, INT16]
-    Ks = [0, 1, 2, 3, 4, 5, 6]
-    Ws = [None, 32, 16, 8, 4]
-    print(f"Configs: {len(fmts)} fmts × {len(Ks)} K × {len(Ws)} W = "
-          f"{len(fmts) * len(Ks) * len(Ws)}")
-    points = sweep_int_designs(fmts, Ks, Ws, n_samples=1000)
+    # K_values=None -> DEFAULT_K_RANGES per format (INT4: 0-4, INT8: 0-7, INT16: 0-12)
+    # aca_windows: _canonicalise_windows collapses W >= acc_bits to None automatically
+    points = sweep_int_designs(
+        fmts, K_values=None, aca_windows=[4, 8, 16, None],
+        n_dot=150, L=128, act="relu",
+    )
+    print(f"  {len(points)} configs after usability filter")
     _write_designpoint_csv(RESULTS_DIR / "int_sweep.csv", points)
-    print(f"wrote {RESULTS_DIR / 'int_sweep.csv'}  ({len(points)} rows)")
+    print(f"  wrote {RESULTS_DIR / 'int_sweep.csv'}")
 
-    front_nmed = pareto_front(points, x_key="energy_pJ", y_key="error_nmed")
-    _write_designpoint_csv(RESULTS_DIR / "int_pareto.csv", front_nmed)
-    return points, front_nmed
+    gfront = global_front(points, y_key="error_nrmse")
+    _write_designpoint_csv(RESULTS_DIR / "int_pareto.csv", gfront)
+    print(f"  wrote {RESULTS_DIR / 'int_pareto.csv'}  ({len(gfront)} points)")
+
+    pfronts = per_format_fronts(points, y_key="error_nrmse")
+    for fmt_name, front in pfronts.items():
+        out_path = RESULTS_DIR / f"int_pareto_{fmt_name.lower()}.csv"
+        _write_designpoint_csv(out_path, front)
+        print(f"  wrote {out_path}  ({len(front)} points)")
+
+    return points, gfront
 
 
 # ============================================================
@@ -113,16 +131,25 @@ def section_int_sweep() -> tuple[list[DesignPoint], list[DesignPoint]]:
 
 def section_fp_sweep() -> tuple[list[DesignPoint], list[DesignPoint]]:
     print("\n=== B) FP design-space sweep ===")
-    fmts = [FP16, BF16, FP32]
-    Ks = [0, 1, 2, 3, 4, 5, 6]
-    print(f"Configs: {len(fmts)} fmts × {len(Ks)} K = {len(fmts) * len(Ks)}")
-    points = sweep_fp_designs(fmts, Ks, n_samples=1000)
+    # FP8 formats added: E4M3/E5M2 sit between INT8 and FP16 in energy.
+    # K_values=None -> DEFAULT_K_RANGES per format (E4M3/E5M2: 0-4, FP16: 0-7, BF16: 0-5, FP32: 0-11)
+    fmts = [FP8_E4M3, FP8_E5M2, FP16, BF16, FP32]
+    points = sweep_fp_designs(fmts, K_values=None, n_dot=150, L=128, act="relu")
+    print(f"  {len(points)} configs")
     _write_designpoint_csv(RESULTS_DIR / "fp_sweep.csv", points)
-    print(f"wrote {RESULTS_DIR / 'fp_sweep.csv'}  ({len(points)} rows)")
+    print(f"  wrote {RESULTS_DIR / 'fp_sweep.csv'}")
 
-    front = pareto_front(points, x_key="energy_pJ", y_key="error_nmed")
-    _write_designpoint_csv(RESULTS_DIR / "fp_pareto.csv", front)
-    return points, front
+    gfront = global_front(points, y_key="error_nrmse")
+    _write_designpoint_csv(RESULTS_DIR / "fp_pareto.csv", gfront)
+    print(f"  wrote {RESULTS_DIR / 'fp_pareto.csv'}  ({len(gfront)} points)")
+
+    pfronts = per_format_fronts(points, y_key="error_nrmse")
+    for fmt_name, front in pfronts.items():
+        out_path = RESULTS_DIR / f"fp_pareto_{fmt_name.lower()}.csv"
+        _write_designpoint_csv(out_path, front)
+        print(f"  wrote {out_path}  ({len(front)} points)")
+
+    return points, gfront
 
 
 # ============================================================
@@ -333,11 +360,20 @@ def main() -> None:
     print("AxMAC end-to-end experiment driver")
     print("=" * 60)
 
-    int_points, int_front = section_int_sweep()
-    int_front_txt = _print_front("INT (energy, NMED)", int_front)
+    int_points, int_gfront = section_int_sweep()
+    int_front_txt = _print_front("INT global (energy, NRMSE) Pareto front", int_gfront)
 
-    fp_points, fp_front = section_fp_sweep()
-    fp_front_txt = _print_front("FP (energy, NMED)", fp_front)
+    int_pfronts = per_format_fronts(int_points, y_key="error_nrmse")
+    per_fmt_lines = []
+    for fmt_name, front in int_pfronts.items():
+        per_fmt_lines.append(_print_front(f"INT {fmt_name} per-format front", front))
+
+    fp_points, fp_gfront = section_fp_sweep()
+    fp_front_txt = _print_front("FP global (energy, NRMSE) Pareto front", fp_gfront)
+
+    fp_pfronts = per_format_fronts(fp_points, y_key="error_nrmse")
+    for fmt_name, front in fp_pfronts.items():
+        per_fmt_lines.append(_print_front(f"FP {fmt_name} per-format front", front))
 
     mlp_rows = section_mlp_inference()
     unified_rows, unified_front = section_mlp_unified()
@@ -346,15 +382,17 @@ def main() -> None:
     summary_lines = [
         "AxMAC end-to-end experiment summary",
         "=" * 60,
-        f"INT sweep:  {len(int_points)} configs, front size {len(int_front)}",
-        f"FP sweep:   {len(fp_points)} configs, front size {len(fp_front)}",
-        f"MLP K-sweep (INT8): {len(mlp_rows)} K values",
+        f"INT sweep:  {len(int_points)} configs, global front size {len(int_gfront)}",
+        f"FP sweep:   {len(fp_points)} configs, global front size {len(fp_gfront)}",
+        f"MLP K-sweep: {len(mlp_rows)} K values",
         f"Unified MLP K-sweep (INT4/8/16 vs FP32): "
         f"{len(unified_rows)} configs, front size {len(unified_front)}",
         "",
         int_front_txt,
         "",
         fp_front_txt,
+        "",
+        *per_fmt_lines,
         "",
         "--- MLP inference (INT8, 784→128→32→10) ---",
     ]

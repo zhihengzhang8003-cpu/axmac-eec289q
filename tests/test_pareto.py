@@ -149,26 +149,26 @@ def test_sort_front_by_energy():
 def test_sweep_int_grid_size():
     fmts = [INT4, INT8]
     Ks = [0, 2, 4]
-    Ws = [None, 16]
-    points = sweep_int_designs(fmts, Ks, Ws, n_samples=100)
-    assert len(points) == len(fmts) * len(Ks) * len(Ws)
+    Ws = [None]  # single canonical window avoids deduplication ambiguity
+    points = sweep_int_designs(fmts, Ks, Ws, n_dot=20, L=16, filter_usable=False)
+    assert len(points) == len(fmts) * len(Ks)
     assert all(not p.is_fp for p in points)
 
 
 def test_sweep_fp_grid_size():
     fmts = [FP16, BF16]
     Ks = [0, 1, 2, 4]
-    points = sweep_fp_designs(fmts, Ks, n_samples=100)
+    points = sweep_fp_designs(fmts, Ks, n_dot=20, L=16)
     assert len(points) == len(fmts) * len(Ks)
     assert all(p.is_fp for p in points)
 
 
 def test_sweep_baseline_zero_error():
-    """K=0 / W=None must yield zero error within each format."""
-    points = sweep_int_designs([INT8], [0], [None], n_samples=200)
+    """K=0 / W=None yields the smallest error: pure quantisation noise vs float64."""
+    points = sweep_int_designs([INT8], [0], [None], n_dot=50, L=32)
     assert len(points) == 1
-    assert points[0].error_med == 0.0
-    assert points[0].error_rmse == 0.0
+    # Not exactly zero (quantisation noise vs float64 reference), but small.
+    assert points[0].error_nrmse < 0.05
 
 
 def test_sweep_all_designs_concatenates():
@@ -178,9 +178,12 @@ def test_sweep_all_designs_concatenates():
         int_K_values=[0, 2],
         int_aca_windows=[None],
         fp_K_values=[0, 2],
-        n_samples=100,
+        n_dot=20, L=16,
+        filter_usable=False,
     )
     assert len(pts) == 4  # 2 INT + 2 FP
+    assert sum(not p.is_fp for p in pts) == 2
+    assert sum(p.is_fp for p in pts) == 2
 
 
 # ============================================================
@@ -189,37 +192,39 @@ def test_sweep_all_designs_concatenates():
 # ============================================================
 
 def test_within_format_pareto_shows_tradeoffs():
-    """Inside a single format, the (energy, NMED) front is non-trivial:
-    K=0 is the high-energy/zero-error corner, K=max is the cheapest/most-
+    """Inside a single format, the (energy, NRMSE) front is non-trivial:
+    K=0 is the high-energy/low-error corner, K=max is the cheapest/most-
     erroneous corner, and at least one intermediate K can be on the front.
+    filter_usable=False keeps all K values regardless of noise level.
     """
-    points = sweep_int_designs([INT8], [0, 1, 2, 4, 6], [None], n_samples=400)
-    front = pareto_front(points, x_key="energy_pJ", y_key="error_nmed")
+    points = sweep_int_designs([INT8], [0, 1, 2, 4, 6], [None], n_dot=50, L=32, filter_usable=False)
+    front = pareto_front(points, x_key="energy_pJ", y_key="error_nrmse")
     assert any(p.K == 0 for p in front), "K=0 (corner of error axis) must be on front"
     assert any(p.K == 6 for p in front), "K=6 (corner of energy axis) must be on front"
     assert len(front) >= 2
 
 
-def test_cross_format_pareto_int4_dominates_under_nmed():
-    """Sanity check on the Pareto extractor: when all formats can represent
-    operands in their own range, the cheapest format (INT4) has both the
-    lowest energy AND zero NMED at K=0, so it dominates the K=0 baselines
-    of the other formats. Confirms the dominance check is correct.
+def test_cross_format_pareto_spans_formats():
+    """Global Pareto front (NRMSE vs energy) spans from cheap/imprecise to accurate.
+
+    With NRMSE vs float64 as the cross-format error metric, INT4 K=0 carries
+    larger quantisation noise than INT16 K=0, so the front is multi-format:
+    INT4 occupies the low-energy end, INT16 the high-accuracy end.
     """
-    points = sweep_int_designs([INT4, INT8, INT16], [0, 2, 4], [None], n_samples=400)
-    front = pareto_front(points, x_key="energy_pJ", y_key="error_nmed")
-    # Every front point belongs to INT4 under this setup.
-    assert all(p.fmt_name == "INT4" for p in front)
-    # INT8 K=0 and INT16 K=0 are dominated by INT4 K=0 (same error 0,
-    # higher energy). Make sure they're not on the front.
-    front_signatures = {(p.fmt_name, p.K) for p in front}
-    assert ("INT8", 0) not in front_signatures
-    assert ("INT16", 0) not in front_signatures
+    points = sweep_int_designs([INT4, INT8, INT16], [0, 2, 4], [None], n_dot=50, L=32)
+    front = pareto_front(points, x_key="energy_pJ", y_key="error_nrmse")
+    fmts_on_front = {p.fmt_name for p in front}
+    assert "INT4" in fmts_on_front, "INT4 must be on front (lowest energy)"
+    assert "INT16" in fmts_on_front, "INT16 must be on front (lowest NRMSE)"
+    assert len(fmts_on_front) > 1, "front must span multiple formats"
+    # The lowest-energy point is always INT4.
+    min_e_pt = min(front, key=lambda p: p.energy_pJ)
+    assert min_e_pt.fmt_name == "INT4"
 
 
 def test_pareto_front_lowest_energy_is_on_front():
     """The point with strictly lowest energy is always on the front."""
-    points = sweep_int_designs([INT4, INT8, INT16], [0, 2, 4], [None], n_samples=200)
+    points = sweep_int_designs([INT4, INT8, INT16], [0, 2, 4], [None], n_dot=30, L=16)
     front = pareto_front(points, x_key="energy_pJ", y_key="error_med")
     min_energy = min(p.energy_pJ for p in points)
     assert any(p.energy_pJ == min_energy for p in front)
@@ -228,5 +233,5 @@ def test_pareto_front_lowest_energy_is_on_front():
 def test_design_point_repr_contains_metrics():
     p = _mk_point(energy=1.5, err=0.02, fmt="INT8", K=3, W=8)
     r = repr(p)
-    for tag in ["INT8", "K=3", "W=8", "E=1.500", "MED=", "NMED=", "RMSE="]:
+    for tag in ["INT8", "K=3", "W=8", "E=1.500", "NRMSE=", "bias="]:
         assert tag in r

@@ -52,13 +52,13 @@ rtl/
 | Phase | Work | Status |
 |-------|------|--------|
 | 0 | Directory skeleton, golden exporter, README | Done |
-| 1 | mac_unit.v + tb_mac_unit.sv (bit-exact trunc/round + stochastic mean check) | Done — 4046+ cases pass in ModelSim; bit-exact trunc/round, stochastic within 5σ |
-| 2 | aca_adder.v + tb_aca_adder.sv (W=4/8/16/32 across 32-bit) | Done — 1024 cases bit-exact in ModelSim |
-| 3 | mac_array.v + tb_mac_array.sv (4×4 output-stationary, inline reference) | Done — passes in ModelSim |
-| 4 | mlp_top.v + tb_mlp_top.sv (FSM + tiling, toy 64→16→10) | Done — 10/10 outputs bit-exact vs Python; stochastic unbiasedness confirmed in hardware (commit 0c2325a) |
-| 4b | mlp_top_demo.v + tb_mlp_top_demo.sv (board wrapper, LED display) | Done — argmax displayed on 野火征途 4 LEDs; testbench PASS (commit 95ec92e) |
+| 1 | mac_unit.v + tb_mac_unit.sv (bit-exact trunc/round + stochastic mean check) | RTL + testbench written; **simulation not yet run** (Icarus not installed locally) |
+| 2 | aca_adder.v + tb_aca_adder.sv (W=4/8/16/32 across 32-bit) | RTL + testbench written; **simulation not yet run** |
+| 3 | mac_array.v + tb_mac_array.sv (4×4 output-stationary, inline reference) | RTL + testbench written; **simulation not yet run** |
+| 4 | mlp_top.v + tb_mlp_top.sv (FSM + tiling, toy 64→16→10) | RTL + testbench written; **simulation not yet run** |
+| 4b | mlp_top_demo.v + tb_mlp_top_demo.sv (board wrapper, LED display) | RTL + testbench written (commit 95ec92e); **simulation not yet run** |
 | 5a | Vivado synth + impl + SAIF + Power Report on xc7a100t | **TODO** — `vendor/xilinx/` empty; waits for Vivado install |
-| 5b | Quartus synth + .sof + PowerPlay on EP4CE10 + 野火征途 burn | Done — PPA results in `vendor/altera/ppa_results.csv`; bitstream verified on board (commit 0c2325a) |
+| 5b | Quartus synth + .sof + PowerPlay on EP4CE10 + 野火征途 board burn | **TODO** — synthesis scripts + pin constraints ready; **bitstream has NOT been programmed to board** |
 
 ## Golden CSV contract
 

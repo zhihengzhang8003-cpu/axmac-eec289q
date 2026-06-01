@@ -74,14 +74,15 @@ ICCV 2019) instead of a single global K.
 | 3 | `power_model.py`: cost of `round` (~`trunc`) vs `stochastic` (+RNG) | done — commit 9157177 |
 | 4 | Contribution B: per-layer K + sensitivity allocation | done — commit 3fb5b83 |
 | 5 | Experiments: bias accumulation, 3-way rounding, FP8, Pareto | done — commit 695bd2b |
-| 6 | pytest tests for new code | done — commit 7ef07ca, 343 tests pass |
-| 7 | README / proposal rewrite (FP8 narrative + recent refs) | README done; proposal `.docx` pending |
+| 6 | pytest tests for new code | done — commit 7ef07ca, **343 passed** |
+| 7 | README + proposal `.docx` rewrite (FP8 narrative + recent refs) | done — commit 86620ea / 3cfa1d3 |
 | 8 | FP8 formats E4M3/E5M2 in `exact_mac.py` | done — commit a80a680 |
+| 9 | RTL hardware implementation (Verilog AxMAC, EP4CE10 verified) | done — commit 0c2325a |
+| 10 | Unified INT4/8/16 vs FP32 task-level K-sweep (`main.py` Section D) | done — commit d1d51e4 |
+| 11 | RTL board demo wrapper (mlp_top_demo, LED display, 野火征途 Pro) | done — commit 95ec92e |
+| 12 | Pareto v2: cross-format NRMSE, FP8 sweep, per-format fronts | done — commit 931ac3a |
 
-All code/test/experiment tasks complete (suggested order was 8 → 3 → 4 → 5
-→ 6 → 7). The `rounding` knob was threaded through `accuracy_eval.py` /
-`dnn_inference.py` in task 5 so the experiments (task 5) can use it. The only
-open item is rewriting the one-page proposal `.docx` to match this framing.
+All tasks complete.
 
 ## References
 

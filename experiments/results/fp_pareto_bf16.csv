@@ -1,0 +1,2 @@
+fmt,is_fp,K,aca_window,energy_pJ,mult_pJ,add_pJ,med,rmse,nmed,max_abs,nrmse,rel_bias
+BF16,True,5,,0.921797,0.541797,0.380000,5.827866e-02,8.289139e-02,1.008985e-02,3.551447e-01,1.008985e-02,1.487269e-03

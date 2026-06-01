@@ -74,6 +74,18 @@ TESTS = {
         ],
         "toplevel": "tb_mlp_top",
     },
+    "mlp_top_demo": {
+        "sources": [
+            SRC_DIR / "mac_unit.v",
+            SRC_DIR / "aca_adder.v",
+            SRC_DIR / "mac_array.v",
+            SRC_DIR / "lfsr.v",
+            SRC_DIR / "mlp_top.v",
+            SRC_DIR / "mlp_top_demo.v",
+            TB_DIR / "tb_mlp_top_demo.sv",
+        ],
+        "toplevel": "tb_mlp_top_demo",
+    },
 }
 
 

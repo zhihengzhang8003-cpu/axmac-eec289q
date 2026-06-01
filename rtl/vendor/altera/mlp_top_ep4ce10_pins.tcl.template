@@ -1,0 +1,39 @@
+# =============================================================================
+# 野火征途 EP4CE10F17C8 pin assignments for mlp_top_demo.
+#
+# Fill in the PIN_xx values from the board schematic / 野火 配套资料 (the
+# example project's .qsf lists them), then RENAME this file by dropping the
+# ".template" suffix so build_demo.tcl picks it up:
+#     mlp_top_ep4ce10_pins.tcl.template  ->  mlp_top_ep4ce10_pins.tcl
+#
+# Signals to place (7 pins):
+#   clk          50 MHz onboard crystal input
+#   rst_n        a push button (active low: pressed = 0). If your board's reset
+#                button is active-high, invert it in mlp_top_demo or here.
+#   led_class[3:0]  4 LEDs -> predicted class 0..9 in binary
+#   led_done        1 LED  -> lit when inference finished
+#
+# I/O standard for Cyclone IV E banks is typically 3.3-V LVTTL.
+# =============================================================================
+
+# --- Clock ---
+set_location_assignment PIN_XX  -to clk
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to clk
+
+# --- Reset button ---
+set_location_assignment PIN_XX  -to rst_n
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to rst_n
+
+# --- Class LEDs (binary 0..9) ---
+set_location_assignment PIN_XX  -to led_class[0]
+set_location_assignment PIN_XX  -to led_class[1]
+set_location_assignment PIN_XX  -to led_class[2]
+set_location_assignment PIN_XX  -to led_class[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to led_class[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to led_class[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to led_class[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to led_class[3]
+
+# --- Done LED ---
+set_location_assignment PIN_XX  -to led_done
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to led_done

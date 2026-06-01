@@ -52,11 +52,11 @@ rtl/
 | Phase | Work | Status |
 |-------|------|--------|
 | 0 | Directory skeleton, golden exporter, README | Done |
-| 1 | mac_unit.v + tb_mac_unit.sv (bit-exact trunc/round + stochastic mean check) | RTL + testbench written; **simulation not yet run** (Icarus not installed locally) |
-| 2 | aca_adder.v + tb_aca_adder.sv (W=4/8/16/32 across 32-bit) | RTL + testbench written; **simulation not yet run** |
-| 3 | mac_array.v + tb_mac_array.sv (4×4 output-stationary, inline reference) | RTL + testbench written; **simulation not yet run** |
-| 4 | mlp_top.v + tb_mlp_top.sv (FSM + tiling, toy 64→16→10) | RTL + testbench written; **simulation not yet run** |
-| 4b | mlp_top_demo.v + tb_mlp_top_demo.sv (board wrapper, LED display) | RTL + testbench written (commit 95ec92e); **simulation not yet run** |
+| 1 | mac_unit.v + tb_mac_unit.sv (bit-exact trunc/round + stochastic mean check) | **PASS** — 4046 deterministic cases bit-exact; stochastic mean within tolerance (ModelSim 2026-06-01) |
+| 2 | aca_adder.v + tb_aca_adder.sv (W=4/8/16/32 across 32-bit) | **PASS** — 1024 cases bit-exact (ModelSim 2026-06-01) |
+| 3 | mac_array.v + tb_mac_array.sv (4×4 output-stationary, inline reference) | **PASS** — 16 cases (ModelSim 2026-06-01) |
+| 4 | mlp_top.v + tb_mlp_top.sv (FSM + tiling, toy 64→16→10) | **PASS** — 10/10 outputs bit-exact vs Python golden (ModelSim 2026-06-01) |
+| 4b | mlp_top_demo.v + tb_mlp_top_demo.sv (board wrapper, LED display) | **PASS** — led_class=1 matches argmax of golden logits (ModelSim 2026-06-01) |
 | 5a | Vivado synth + impl + SAIF + Power Report on xc7a100t | **TODO** — `vendor/xilinx/` empty; waits for Vivado install |
 | 5b | Quartus synth + .sof + PowerPlay on EP4CE10 + 野火征途 board burn | **TODO** — synthesis scripts + pin constraints ready; **bitstream has NOT been programmed to board** |
 

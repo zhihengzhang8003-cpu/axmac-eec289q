@@ -77,12 +77,25 @@ ICCV 2019) instead of a single global K.
 | 6 | pytest tests for new code | done — commit 7ef07ca, **343 passed** |
 | 7 | README + proposal `.docx` rewrite (FP8 narrative + recent refs) | done — commit 86620ea / 3cfa1d3 |
 | 8 | FP8 formats E4M3/E5M2 in `exact_mac.py` | done — commit a80a680 |
-| 9 | RTL Verilog implementation (mac_unit/aca_adder/mac_array/mlp_top + testbenches + Quartus scripts) | code written commit 0c2325a; **ModelSim simulation all PASS** 2026-06-01; board burn pending |
+| 9 | RTL Verilog implementation (mac_unit/aca_adder/mac_array/mlp_top + testbenches + Quartus scripts) | done — commit 0c2325a; ModelSim PASS; Quartus synthesis 21% LE, timing closed; **board burn ✅ 2026-06-01** |
 | 10 | Unified INT4/8/16 vs FP32 task-level K-sweep (`main.py` Section D) | done — commit d1d51e4 |
-| 11 | RTL board demo wrapper (mlp_top_demo, LED display, 野火征途 Pro) | code written commit 95ec92e; **ModelSim simulation PASS** 2026-06-01; board burn pending |
+| 11 | RTL board demo wrapper (mlp_top_demo, LED display, 野火征途 Pro) | done — commit 95ec92e; **board burn ✅ 2026-06-01, LED argmax=1 confirmed** |
 | 12 | Pareto v2: cross-format NRMSE, FP8 sweep, per-format fronts | done — commit 931ac3a |
+| 13 | UART TX output (uart_tx/uart_framer) + on-chip multi-K test | done — commit e9141b5; **K=6 trunc misclassification confirmed on hardware** |
 
-Python/experiment tasks complete. RTL simulation (ModelSim, all 5 testbenches PASS 2026-06-01). **Remaining: Quartus synthesis + board burn (EP4CE10 野火征途).**
+**All tasks complete.** Python experiments (343 pytest passed), RTL simulation (ModelSim all 5 tb PASS), Quartus synthesis (EP4CE10, 21% LE, 50 MHz closed), board burn + on-chip K-sweep (5 configs, K=6 trunc argmax 1→3 confirmed).
+
+## On-chip test results (2026-06-01, EP4CE10 野火征途 Pro)
+
+| Config | K | Mode | Board argmax | Correct |
+|--------|---|------|-------------|---------|
+| K0_trunc | 0 | trunc (exact baseline) | 1 | ✅ |
+| K2_trunc | 2 | trunc | 1 | ✅ |
+| K4_trunc | 4 | trunc | 1 | ✅ |
+| K4_round | 4 | round | 1 | ✅ |
+| K6_trunc | 6 | trunc | **3** | ❌ misclassified |
+
+K=6 trunc misclassification (argmax 1→3) matches Python sim bias +29.9 — validates RTL correctness and demonstrates accuracy collapse at aggressive truncation.
 
 ## References
 

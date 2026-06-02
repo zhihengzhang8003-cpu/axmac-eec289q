@@ -38,7 +38,8 @@ module mlp_top_demo #(
 ) (
     input  wire       clk,
     input  wire       rst_n,
-    output wire [3:0] led_class
+    output wire [3:0] led_class,
+    output wire       uart_tx_pin    // 115200 8N1: connect to PIN_B3 (CH340 on 野火征途)
 );
 
     localparam integer L1_OUT   = 10;
@@ -85,9 +86,33 @@ module mlp_top_demo #(
         end
     end
 
-    // LED polarity (done is unused at the port now, kept internal for sim).
-    wire _unused_done = done;
     assign led_class = (LED_ACTIVE_LOW != 0) ? ~amax : amax;
+
+    // ------------------------------------------------------------------
+    // UART output: send header + 10 logits (41 bytes) after inference.
+    // ------------------------------------------------------------------
+    wire [7:0] framer_data;
+    wire       framer_valid;
+    wire       framer_ready;
+
+    uart_framer #(.NBYTES(L1_OUT * ACC_BITS / 8)) u_framer (
+        .clk        (clk),
+        .rst_n      (rst_n),
+        .done       (done),
+        .result_flat(result_flat),
+        .tx_data    (framer_data),
+        .tx_valid   (framer_valid),
+        .tx_ready   (framer_ready)
+    );
+
+    uart_tx #(.CLK_FREQ(50_000_000), .BAUD(115_200)) u_uart (
+        .clk   (clk),
+        .rst_n (rst_n),
+        .data  (framer_data),
+        .valid (framer_valid),
+        .ready (framer_ready),
+        .tx    (uart_tx_pin)
+    );
 
 endmodule
 

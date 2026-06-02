@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell.exe *)",
+      "Bash(powershell *)",
+      "Bash(E:\\Quart\\quartus\\bin64\\quartus_sh*)",
+      "Bash(E:\\Quart\\quartus\\bin64\\quartus_pgm*)",
+      "Bash(E:\\Quart\\quartus\\bin64\\quartus_map*)",
+      "Bash(E:\\Quart\\quartus\\bin64\\quartus_fit*)",
+      "Bash(E:\\Quart\\quartus\\bin64\\quartus_asm*)",
+      "Bash(E:\\Quart\\quartus\\bin64\\jtagserver*)",
+      "Bash(/e/Quart/quartus/bin64/*)",
+      "Bash(quartus_sh*)",
+      "Bash(quartus_pgm*)",
+      "Bash(py -3.14 *)",
+      "Bash(py -3.14*)",
+      "Bash(git *)",
+      "Bash(git)",
+      "Bash(vlog *)",
+      "Bash(vsim *)",
+      "Bash(vlib *)",
+      "Bash(sleep *)",
+      "Bash(ls *)",
+      "Bash(ls)",
+      "Bash(cat *)",
+      "Bash(grep *)",
+      "Bash(dir *)",
+      "Bash(cd *)",
+      "Bash(export *)",
+      "Bash(echo *)",
+      "Bash(*burn_fpga.bat*)",
+      "Bash(*burn_capture.bat*)",
+      "Bash(*install_usb_blaster.bat*)",
+      "Bash(*fix_blaster.bat*)",
+      "Bash(*reinstall_blaster.bat*)",
+      "Read",
+      "Edit",
+      "Write"
+    ]
+  }
+}

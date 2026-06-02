@@ -32,6 +32,8 @@ set_global_assignment -name VERILOG_FILE ../../../../src/aca_adder.v
 set_global_assignment -name VERILOG_FILE ../../../../src/mac_array.v
 set_global_assignment -name VERILOG_FILE ../../../../src/lfsr.v
 set_global_assignment -name VERILOG_FILE ../../../../src/mlp_top.v
+set_global_assignment -name VERILOG_FILE ../../../../src/uart_tx.v
+set_global_assignment -name VERILOG_FILE ../../../../src/uart_framer.v
 set_global_assignment -name VERILOG_FILE ../../../../src/mlp_top_demo.v
 
 # K=2 / trunc demo; LEDs active-low for typical 野火 boards.

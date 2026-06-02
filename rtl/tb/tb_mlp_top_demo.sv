@@ -20,6 +20,7 @@ module tb_mlp_top_demo;
 
     logic       rst_n;
     wire [3:0]  led_class;
+    wire        uart_tx_sim;   // UART output -- not checked in sim, just connected
 
     mlp_top_demo #(
         .K_PARAM(2), .MODE(0), .ACA_W(32),
@@ -30,8 +31,10 @@ module tb_mlp_top_demo;
         .W1_FILE("../golden/mlp_toy/w1.mem"),
         .B1_FILE("../golden/mlp_toy/b1.mem")
     ) dut (
-        .clk(clk), .rst_n(rst_n),
-        .led_class(led_class)
+        .clk         (clk),
+        .rst_n       (rst_n),
+        .led_class   (led_class),
+        .uart_tx_pin (uart_tx_sim)
     );
 
     integer i;

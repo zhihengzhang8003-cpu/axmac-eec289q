@@ -23,3 +23,7 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to led_class[0]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to led_class[1]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to led_class[2]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to led_class[3]
+
+# --- UART TX → CH340 (115200 8N1) ---
+set_location_assignment PIN_B3  -to uart_tx_pin
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to uart_tx_pin

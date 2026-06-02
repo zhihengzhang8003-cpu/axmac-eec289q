@@ -81,6 +81,8 @@ TESTS = {
             SRC_DIR / "mac_array.v",
             SRC_DIR / "lfsr.v",
             SRC_DIR / "mlp_top.v",
+            SRC_DIR / "uart_tx.v",
+            SRC_DIR / "uart_framer.v",
             SRC_DIR / "mlp_top_demo.v",
             TB_DIR / "tb_mlp_top_demo.sv",
         ],

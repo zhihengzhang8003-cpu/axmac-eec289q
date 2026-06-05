@@ -10,6 +10,8 @@ Figures produced (saved to experiments/results/figures/):
 
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 import csv
 import numpy as np
@@ -252,7 +254,7 @@ ax.annotate("Board: correct\n(K=0..4 trunc, K=4 round)",
             xytext=(2.5, 55), fontsize=8,
             arrowprops=dict(arrowstyle="->", color="gray", lw=0.8),
             color="gray")
-ax.annotate("Board: argmax=3 ✗\n(K=6 trunc)",
+ax.annotate("Board: argmax=3 [FAIL]\n(K=6 trunc)",
             xy=(6, results_acc["trunc"][6] * 100),
             xytext=(5.5, 25), fontsize=8,
             arrowprops=dict(arrowstyle="->", color=C_TRUNC, lw=0.8),
@@ -284,5 +286,86 @@ with open(acc_csv, "w", newline="") as f:
                     round(results_acc["round"][i], 6),
                     round(results_acc["stochastic"][i], 6)])
 print(f"  saved accuracy_vs_K.csv")
+
+# ============================================================
+# FIG 5 -- CIFAR-10 INT8 accuracy vs K (trunc / round / DRUM)
+# ============================================================
+print("Fig 5: CIFAR-10 accuracy vs K...")
+
+cifar_rows = _read_csv(os.path.join(RESULTS, "cifar10_accuracy.csv"))
+
+# Parse rows: exact baseline, trunc/round per K, DRUM points
+exact_acc = next(r["accuracy"] for r in cifar_rows if r["mode"] == "exact")
+
+K_vals = sorted(set(int(r["K"]) for r in cifar_rows
+                    if r["mode"] in ("trunc", "round")))
+
+def _cifar_acc(mode):
+    return [next(r["accuracy"] for r in cifar_rows
+                 if r["mode"] == mode and int(r["K"]) == k)
+            for k in K_vals]
+
+trunc_acc = _cifar_acc("trunc")
+round_acc = _cifar_acc("round")
+
+# DRUM single-point data
+drum4_acc = next((r["accuracy"] for r in cifar_rows if r["K"] == "drum-4"), None)
+drum6_acc = next((r["accuracy"] for r in cifar_rows if r["K"] == "drum-6"), None)
+
+C_DRUM4 = "#ff7f0e"   # orange for DRUM-4
+C_DRUM6 = "#9467bd"   # purple for DRUM-6
+FLOAT32_BASE = 0.8325  # float32 training accuracy
+
+fig, ax = plt.subplots(figsize=(6.0, 4.0))
+
+# Prepend K=0 exact baseline to both lines
+Kx     = [0] + K_vals
+t_plot = [exact_acc] + trunc_acc
+r_plot = [exact_acc] + round_acc
+
+ax.plot(Kx, [v * 100 for v in t_plot], "o-",
+        color=C_TRUNC, label="trunc", lw=2)
+ax.plot(Kx, [v * 100 for v in r_plot], "s-",
+        color=C_ROUND, label="round", lw=2)
+
+# DRUM single-point markers (x position = comparable aggressiveness)
+if drum4_acc is not None:
+    ax.plot(4, drum4_acc * 100, "D", color=C_DRUM4, ms=8, zorder=5,
+            label=f"DRUM-4  ({drum4_acc*100:.1f}%)")
+if drum6_acc is not None:
+    ax.plot(2, drum6_acc * 100, "D", color=C_DRUM6, ms=8, zorder=5,
+            label=f"DRUM-6  ({drum6_acc*100:.1f}%)")
+
+# Float32 reference line
+ax.axhline(FLOAT32_BASE * 100, color=C_EXACT, ls="--", lw=1.2,
+           alpha=0.7, label=f"Float32 baseline ({FLOAT32_BASE*100:.2f}%)")
+
+# Annotate the key comparison points
+ax.annotate(f"trunc K=6\n{trunc_acc[-1]*100:.1f}% (collapse)",
+            xy=(6, trunc_acc[-1] * 100),
+            xytext=(4.2, 22), fontsize=8,
+            arrowprops=dict(arrowstyle="->", color=C_TRUNC, lw=1.0),
+            color=C_TRUNC, fontweight="bold")
+ax.annotate(f"round K=6\n{round_acc[-1]*100:.1f}% (+0.0pp)",
+            xy=(6, round_acc[-1] * 100),
+            xytext=(4.5, 77), fontsize=8,
+            arrowprops=dict(arrowstyle="->", color=C_ROUND, lw=1.0),
+            color=C_ROUND, fontweight="bold")
+
+ax.set_xlabel("Truncation depth K")
+ax.set_ylabel("Top-1 Accuracy (%)")
+ax.set_title(
+    "Fig. 5: CIFAR-10 INT8 accuracy vs truncation depth K\n"
+    "SimpleCNN  |  INT8 PTQ  |  10,000 test images",
+    fontsize=10)
+ax.set_xticks(range(0, 8))
+ax.set_ylim(0, 95)
+ax.yaxis.set_major_formatter(mticker.FormatStrFormatter("%.0f%%"))
+ax.legend(framealpha=0.92, loc="lower left")
+ax.grid(True, ls=":", alpha=0.4)
+fig.tight_layout()
+fig.savefig(os.path.join(FIGDIR, "fig5_cifar10_accuracy.png"), dpi=200)
+plt.close(fig)
+print("  saved fig5_cifar10_accuracy.png")
 
 print("\nAll figures saved to:", FIGDIR)

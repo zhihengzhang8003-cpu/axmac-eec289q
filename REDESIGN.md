@@ -74,7 +74,7 @@ ICCV 2019) instead of a single global K.
 | 3 | `power_model.py`: cost of `round` (~`trunc`) vs `stochastic` (+RNG) | done — commit 9157177 |
 | 4 | Contribution B: per-layer K + sensitivity allocation | done — commit 3fb5b83 |
 | 5 | Experiments: bias accumulation, 3-way rounding, FP8, Pareto | done — commit 695bd2b |
-| 6 | pytest tests for new code | done — commit 7ef07ca, **343 passed** |
+| 6 | pytest tests for new code | done — commit 7ef07ca, **350 passed** (incl. 6 DRUM tests added 2026-06-05) |
 | 7 | README + proposal `.docx` rewrite (FP8 narrative + recent refs) | done — commit 86620ea / 3cfa1d3 |
 | 8 | FP8 formats E4M3/E5M2 in `exact_mac.py` | done — commit a80a680 |
 | 9 | RTL Verilog implementation (mac_unit/aca_adder/mac_array/mlp_top + testbenches + Quartus scripts) | done — commit 0c2325a; ModelSim PASS; Quartus synthesis 21% LE, timing closed; **board burn ✅ 2026-06-01** |
@@ -83,7 +83,9 @@ ICCV 2019) instead of a single global K.
 | 12 | Pareto v2: cross-format NRMSE, FP8 sweep, per-format fronts | done — commit 931ac3a |
 | 13 | UART TX output (uart_tx/uart_framer) + on-chip multi-K test | done — commit e9141b5; **K=6 trunc misclassification confirmed on hardware** |
 
-**All tasks complete.** Python experiments (343 pytest passed), RTL simulation (ModelSim all 5 tb PASS), Quartus synthesis (EP4CE10, 21% LE, 50 MHz closed), board burn + on-chip K-sweep (5 configs, K=6 trunc argmax 1→3 confirmed).
+**All original tasks complete.** Python experiments (350 pytest passed), RTL simulation (ModelSim all 6 tb PASS), Quartus synthesis (EP4CE10, 21% LE, 50 MHz closed), board burn + on-chip K-sweep (5 configs, K=6 trunc argmax 1→3 confirmed).
+
+**P0/P1 improvements also complete** — see section below.
 
 ## On-chip test results (2026-06-01, EP4CE10 野火征途 Pro)
 
@@ -146,10 +148,36 @@ achieves the same bias cancellation deterministically.
 
 | Label | Work | Status |
 |-------|------|--------|
-| P0.1 | CIFAR-10 approximate MAC accuracy experiment (SimpleCNN, INT8 PTQ) | `experiments/cifar10_experiment.py` added |
-| P0.2 | Formal bias accumulation theorem (Theorem 1 above) | Added to this doc |
-| P1.1 | DRUM-k multiplier: Python (`drum_quantize_operand`, `drum_multiply`, `int_conv2d_drum`) + Verilog (`rtl/src/drum_multiplier.v`) | Done |
-| P1.2 | Quartus synthesis comparison: DRUM vs round vs trunc (see `rtl/vendor/altera/ppa_sweep.tcl`) | Done — `ppa_drum_k4` target added, outputs to `E:/uart_builds/ppa_drum_k4` |
+| P0.1 | CIFAR-10 approximate MAC accuracy experiment (SimpleCNN, INT8 PTQ) | Done — commit 64e2314; float32 83.25%, results below |
+| P0.2 | Formal bias accumulation theorem (Theorem 1 above) | Done — commit 64e2314 |
+| P1.1 | DRUM-k multiplier: Python (`drum_quantize_operand`, `drum_multiply`, `int_conv2d_drum`) + Verilog (`rtl/src/drum_multiplier.v`) | Done — commit 64e2314; 6 pytest tests added |
+| P1.2 | Quartus synthesis comparison: DRUM vs round vs trunc (see `rtl/vendor/altera/ppa_sweep.tcl`) | Done — commit 64e2314; `ppa_drum_k4` target added, outputs to `E:/uart_builds/ppa_drum_k4` |
+
+## CIFAR-10 Experiment Results (P0.1, 2026-06-05)
+
+Model: SimpleCNN (3 conv + 2 FC, no BN), trained 30 epochs Adam, CIFAR-10.
+Evaluation: INT8 PTQ (per-tensor symmetric, 8-batch calibration), 10,000 test images.
+
+| K | trunc | round | round − trunc | DRUM-4 |
+|---|-------|-------|---------------|--------|
+| 0 (exact INT8 baseline) | 82.9% | 82.9% | 0.0 pp | 82.4% |
+| 1 | 83.0% | 83.1% | +0.1 pp | — |
+| 2 | 82.9% | 83.0% | +0.1 pp | — |
+| 3 | 82.3% | 83.0% | +0.7 pp | — |
+| 4 | 79.5% | 83.0% | **+3.5 pp** | 82.4% |
+| 5 | 56.8% | 83.0% | **+26.2 pp** | — |
+| 6 | **10.8%** | **83.0%** | **+72.1 pp** | — |
+
+Float32 baseline: 83.25%. DRUM-6: 83.1% (mild approximation).
+
+Key finding: round mode holds 83.0% accuracy at K=6 while trunc collapses
+to 10.8% (near-random). This matches the FPGA on-chip misclassification
+(K=6 trunc: argmax 1→3) and validates the bias accumulation theorem
+empirically on a real dataset at scale.
+
+DRUM-4 achieves 82.4% (−0.6 pp vs exact) — zero-mean error but slightly
+lower accuracy than round mode, with higher hardware cost (LZC + barrel
+shift vs. plain constant add). Round mode is the practical optimum.
 
 ## References
 

@@ -386,14 +386,17 @@
   <div class="file-row">
     <span class="file-name"><span class="tag tag-md">MD</span>REDESIGN.md</span>
     <div class="file-desc">
-      <p><strong>项目重设计说明书</strong>，记录了 TA 反馈驱动的重定位过程。包括：</p>
+      <p><strong>项目重设计说明书</strong>，记录了 TA 反馈驱动的重定位过程及后续 P0/P1 改进。包括：</p>
       <p>① <em>Why this redesign</em>：原始版本只复现没有改进，缺少研究 narrative<br>
          ② 基线定义：截断乘法器（Mahdiani 2010）+ ACA 加法器（Kahng &amp; Kang 2012）<br>
          ③ 三个已识别缺陷的详细描述（偏置积累、均匀 K 浪费、错误的 Pareto 指标）<br>
          ④ Contribution A &amp; B 的设计决策<br>
-         ⑤ <strong>任务进度表（13 项全部完成）</strong><br>
-         ⑥ 片上测试结果表（5 种配置，K=6 trunc 误分类确认）</p>
+         ⑤ <strong>任务进度表（13 项原始任务 + P0/P1 全部完成，350 pytest passed）</strong><br>
+         ⑥ 片上测试结果表（5 种配置，K=6 trunc 误分类确认）<br>
+         ⑦ <strong>Theorem 1（偏差累积形式证明）</strong>：trunc 偏差 O(N)，round 偏差 = 0<br>
+         ⑧ <strong>CIFAR-10 实验结果表</strong>（2026-06-05）：round K=6 保持 83.0%，trunc K=6 崩溃至 10.8%</p>
       <div class="finding red">K=6 trunc 在真实 FPGA 上 argmax 从 1 变成 <strong>3</strong>，与 Python 仿真偏差 +29.9 吻合，验证 RTL 正确性。</div>
+      <div class="finding green">CIFAR-10（INT8 PTQ，10,000 张）：round 模式在 K=2~6 全程维持 <strong>83.0%</strong>，与精确基线差距 &lt;0.1pp；trunc K=6 崩溃至 <strong>10.8%</strong>（+72.1pp 差距）。</div>
     </div>
   </div>
 
@@ -1173,7 +1176,7 @@
   <span class="sec-icon">📚</span>
   <span class="sec-title">参考文献 <code>reference/</code></span>
   <span class="sec-desc">论文 PDF + 公式→论文映射索引</span>
-  <span class="sec-count">10 篇核心 · 19 PDF</span>
+  <span class="sec-count">11 篇核心 · 19 PDF</span>
   <span class="chevron">▶</span>
 </summary>
 <div class="sec-body">
@@ -1188,17 +1191,17 @@
 <table class="result-table" style="margin-top:10px;">
   <tr><th>文件</th><th>对应论文</th><th>在项目中的作用</th></tr>
   <tr>
-    <td><code>Mahdiani_2010_TCAS.pdf</code></td>
+    <td><code>Mahdiani_2010_TCAS</code><br><span style="color:var(--muted);font-size:0.78rem;">⚠ paywall，需图书馆</span></td>
     <td>Mahdiani et al., IEEE TCAS-I 2010</td>
     <td>截断乘法器基线（<code>trunc</code> 模式的原始来源）</td>
   </tr>
   <tr>
-    <td><code>Kahng_2012_DAC.pdf</code></td>
+    <td><code>Kahng_2012_ACA.pdf</code></td>
     <td>Kahng &amp; Kang, DAC 2012</td>
     <td>ACA 近似加法器（<code>aca_adder.v</code> 的来源）</td>
   </tr>
   <tr>
-    <td><code>Schulte_1993_VLSI.pdf</code></td>
+    <td><code>Schulte_1993_VLSI</code><br><span style="color:var(--muted);font-size:0.78rem;">⚠ paywall，需图书馆</span></td>
     <td>Schulte &amp; Swartzlander, 1993</td>
     <td>截断乘法器修正常数方法（<code>round</code> 模式的理论依据）</td>
   </tr>
@@ -1236,6 +1239,11 @@
     <td><code>Mrazek_2019_ALWANN.pdf</code></td>
     <td>Mrazek et al., ICCAD 2019</td>
     <td>ALWANN 逐层近似乘法器选择（Contribution B sensitivity-driven 分配的参考工作）</td>
+  </tr>
+  <tr>
+    <td><code>Hashemi_2015_DRUM</code><br><span style="color:var(--muted);font-size:0.78rem;">⚠ paywall，需图书馆</span></td>
+    <td>Hashemi, Bahar &amp; Reda, ICCAD 2015</td>
+    <td>DRUM 动态范围无偏乘法器（<code>drum_multiplier.v</code> 和 <code>drum_multiply()</code> 的来源，P1.1）</td>
   </tr>
 </table>
 
@@ -1279,7 +1287,7 @@
   </div>
   <div class="file-row">
     <span class="file-name"><span class="tag tag-json">TXT</span>requirements.txt</span>
-    <div class="file-desc">最小依赖：<code>numpy&gt;=2.0</code>（向量化推理）、<code>pytest&gt;=8.0</code>（测试框架）。torch / matplotlib 为可选，注释掉的条目仅在生成图表或使用 PyTorch 后端时需要。</div>
+    <div class="file-desc">正式依赖：<code>numpy&gt;=2.0</code>（向量化推理）、<code>pytest&gt;=8.0</code>（测试框架）、<code>torch&gt;=2.4</code> + <code>torchvision&gt;=0.19</code>（CIFAR-10 实验及 PyTorch 后端，P0.1 后升为必须项）。<code>matplotlib</code> 仅 <code>generate_figures.py</code> 需要，仍为注释可选。</div>
   </div>
   <div class="file-row">
     <span class="file-name"><span class="tag tag-html">HTML</span>project_overview.html</span>
@@ -1293,7 +1301,7 @@
 <!-- ════════ FOOTER ════════ -->
 <footer>
   EEC 289Q Deep Learning Hardware · 2026 Spring · UC Davis<br>
-  Jiabo Zhang &amp; Yuxuan Wang &nbsp;|&nbsp; 文档生成于 2026-06-04
+  Jiabo Zhang &amp; Yuxuan Wang &nbsp;|&nbsp; 文档最后更新 2026-06-05
 </footer>
 
 </body>

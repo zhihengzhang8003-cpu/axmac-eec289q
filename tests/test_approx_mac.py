@@ -417,7 +417,7 @@ def test_drum_quantize_arr_matches_scalar():
     )
 
 
-def test_drum_mac_int_k0_exact():
+def test_drum_multiply_full_precision_exact():
     """drum_multiply with k=8 (full INT8 precision) equals exact product."""
     rng = random.Random(99)
     for _ in range(100):

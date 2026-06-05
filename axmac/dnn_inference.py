@@ -354,3 +354,111 @@ def tiny_mlp_forward(
         if i != last:
             h = np.clip(h, 0, fmt.max_val).astype(np.int64)
     return h
+
+
+# ============================================================
+# DRUM-k vectorized backend
+# Hashemi et al., ICCAD 2015 — zero-mean approximate multiply
+# ============================================================
+
+def _drum_quantize_arr(x: np.ndarray, k: int) -> np.ndarray:
+    """Vectorized DRUM-k operand quantization: keep k most significant bits.
+
+    For each element, zeroes all bits below position (msb - k + 1) where
+    msb = floor(log2(|x|)). Zero inputs remain zero. Uses element-wise
+    numpy bitwise shifts (int64) for an efficient, loop-free implementation.
+    """
+    x = x.astype(np.int64)
+    abs_x = np.abs(x)
+    sign = np.where(x >= 0, np.int64(1), np.int64(-1))
+    nonzero = abs_x > 0
+
+    msb = np.zeros(abs_x.shape, dtype=np.int64)
+    if np.any(nonzero):
+        msb[nonzero] = np.floor(
+            np.log2(abs_x[nonzero].astype(np.float64))
+        ).astype(np.int64)
+
+    shift = np.maximum(np.int64(0), msb - np.int64(k - 1))
+    drum_abs = np.where(nonzero, (abs_x >> shift) << shift, np.int64(0))
+    return np.where(nonzero, sign * drum_abs, np.int64(0))
+
+
+def int_matmul_drum(
+    x: np.ndarray,
+    w: np.ndarray,
+    *,
+    fmt: IntFormat,
+    k: int = 4,
+    acc_bits: int = 32,
+    bias: np.ndarray | None = None,
+) -> np.ndarray:
+    """Integer matmul ``x @ w + bias`` with DRUM-k per-operand quantization.
+
+    Unlike :func:`int_matmul_approx` which truncates the *product*, DRUM
+    quantizes each *operand* to k MSBs before multiplying. The zero-mean
+    error property (Hashemi et al. 2015) means accumulated bias stays O(√N)
+    rather than O(N) — at the cost of a leading-bit detector + barrel shift
+    per operand vs. a plain mask for trunc/round.
+    """
+    if k < 1:
+        raise ValueError("k must be >= 1 for DRUM")
+    if x.ndim != 2 or w.ndim != 2:
+        raise ValueError(f"matmul expects 2-D inputs, got {x.shape} and {w.shape}")
+    if x.shape[1] != w.shape[0]:
+        raise ValueError(f"reduction-dim mismatch: {x.shape} vs {w.shape}")
+
+    a = _drum_quantize_arr(x, k)          # (M, K_dim)
+    b = _drum_quantize_arr(w, k)          # (K_dim, N)
+
+    prod = a[:, :, None] * b[None, :, :]  # (M, K_dim, N)
+    accum = prod.sum(axis=1)              # (M, N)
+    if bias is not None:
+        if bias.shape != (w.shape[1],):
+            raise ValueError(f"bias shape {bias.shape} != ({w.shape[1]},)")
+        accum = accum + bias.astype(np.int64)
+    return _wrap_int32(accum, acc_bits)
+
+
+def int_linear_drum(
+    x: np.ndarray,
+    w: np.ndarray,
+    *,
+    fmt: IntFormat,
+    k: int = 4,
+    bias: np.ndarray | None = None,
+    acc_bits: int = 32,
+) -> np.ndarray:
+    """Linear layer with DRUM-k approximation."""
+    return int_matmul_drum(x, w, fmt=fmt, k=k, bias=bias, acc_bits=acc_bits)
+
+
+def int_conv2d_drum(
+    x: np.ndarray,
+    w: np.ndarray,
+    *,
+    fmt: IntFormat,
+    k: int = 4,
+    bias: np.ndarray | None = None,
+    stride: int = 1,
+    padding: int = 0,
+    acc_bits: int = 32,
+) -> np.ndarray:
+    """2-D conv via im2col + :func:`int_matmul_drum` (DRUM-k approximation).
+
+    Shapes: ``x`` (N, C_in, H, W), ``w`` (C_out, C_in, kH, kW), output
+    (N, C_out, H_out, W_out). Zero-mean error, same im2col layout as
+    :func:`int_conv2d_approx`.
+    """
+    if w.ndim != 4:
+        raise ValueError(f"conv2d weights must be 4-D, got {w.shape}")
+    c_out, c_in, kh, kw = w.shape
+    if x.shape[1] != c_in:
+        raise ValueError(f"input channels {x.shape[1]} != weight C_in {c_in}")
+
+    cols, out_h, out_w = _im2col(x, kh, kw, stride, padding)
+    w_mat = w.reshape(c_out, c_in * kh * kw).T   # (C_in*kh*kw, C_out)
+    flat_out = int_matmul_drum(
+        cols, w_mat, fmt=fmt, k=k, bias=bias, acc_bits=acc_bits,
+    )
+    return flat_out.reshape(x.shape[0], out_h, out_w, c_out).transpose(0, 3, 1, 2)

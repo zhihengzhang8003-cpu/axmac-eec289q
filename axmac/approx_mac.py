@@ -174,6 +174,76 @@ def approx_mac_int(
     return out
 
 
+# ============================================================
+# DRUM-k: Dynamic Range Unbiased Multiplier
+# Hashemi, Bahar & Reda, "DRUM: A Dynamic Range Unbiased Multiplier
+# for Approximate Applications", ICCAD 2015.
+# ============================================================
+
+def drum_quantize_operand(x: int, k: int) -> int:
+    """Keep only the k most significant bits of integer x, zeroing the rest.
+
+    For x != 0, identifies the leading-bit position p = floor(log2(|x|)),
+    then shifts right by max(0, p - k + 1) and back left, retaining k bits.
+    Unlike fixed-point truncation which always removes the low K bits of
+    the *product*, DRUM quantizes each *operand* relative to its own
+    magnitude, giving a zero-mean error distribution (Hashemi et al. 2015).
+
+    k <= 0 returns 0; k >= bit_length(|x|) returns x unchanged.
+    """
+    if k <= 0 or x == 0:
+        return 0 if k <= 0 else x
+    sign = 1 if x >= 0 else -1
+    ax = abs(x)
+    msb = ax.bit_length() - 1           # floor(log2(ax))
+    shift = max(0, msb - k + 1)
+    return sign * ((ax >> shift) << shift)
+
+
+def drum_multiply(a: int, b: int, fmt: IntFormat, k: int = 4) -> int:
+    """DRUM-k approximate integer multiply: keep k MSBs per operand.
+
+    Hardware cost: 2 leading-bit counters + 2 barrel shifters + a k×k
+    multiplier — cheaper than a full n×n multiplier but more complex than
+    the plain truncation/round path. Zero-mean error by construction.
+    """
+    a_q = drum_quantize_operand(a, k)
+    b_q = drum_quantize_operand(b, k)
+    return a_q * b_q
+
+
+def approx_mac_int_drum(
+    a: int,
+    b: int,
+    acc: int,
+    fmt: IntFormat,
+    *,
+    k: int = 4,
+    aca_window: int | None = None,
+    acc_bits: int = 32,
+) -> int:
+    """Approximate INT MAC using DRUM-k multiplication.
+
+    Computes ``acc + drum_k(a) * drum_k(b)`` through :func:`aca_add`.
+    Use ``k`` (operand bits) rather than ``K`` (product bits); comparable
+    energy savings to trunc with K ≈ 2*(n-k) but zero-mean error.
+    """
+    if k <= 0:
+        raise ValueError("k must be >= 1 for DRUM")
+    if not (fmt.min_val <= a <= fmt.max_val):
+        raise ValueError(f"a={a} out of range for {fmt.name}")
+    if not (fmt.min_val <= b <= fmt.max_val):
+        raise ValueError(f"b={b} out of range for {fmt.name}")
+    acc_min = -(1 << (acc_bits - 1))
+    acc_max = (1 << (acc_bits - 1)) - 1
+    if not (acc_min <= acc <= acc_max):
+        raise ValueError(f"acc={acc} out of range for {acc_bits}-bit accumulator")
+
+    product = drum_multiply(a, b, fmt, k)
+    window = aca_window if aca_window is not None else acc_bits
+    return aca_add(acc, product, acc_bits, window)
+
+
 def approx_mac_fp(
     a_bits: int,
     b_bits: int,

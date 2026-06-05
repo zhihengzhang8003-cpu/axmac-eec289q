@@ -149,3 +149,79 @@ puts ""
 puts "=================================================="
 puts " PPA sweep done. Results: $results_csv"
 puts "=================================================="
+
+# =============================================================================
+# DRUM-4 standalone synthesis
+# Synthesises drum_multiplier.v in isolation to obtain LE / timing numbers
+# directly comparable to the K=4 trunc/round entries above.
+#   project name : ppa_drum_k4
+#   top          : drum_multiplier
+#   output dir   : E:/uart_builds/ppa_drum_k4   (matches on-chip build paths)
+# =============================================================================
+
+puts ""
+puts "=================================================="
+puts " DRUM-4 standalone PPA"
+puts "=================================================="
+
+set drum_dir "E:/uart_builds/ppa_drum_k4"
+file mkdir $drum_dir
+cd $drum_dir
+
+project_new ppa_drum_k4 -overwrite
+
+set_global_assignment -name FAMILY "Cyclone IV E"
+set_global_assignment -name DEVICE EP4CE10F17C8
+set_global_assignment -name TOP_LEVEL_ENTITY drum_multiplier
+
+# Source files (relative to the new project dir under E:/uart_builds/).
+# drum_multiplier.v is the sole RTL file required for standalone synthesis.
+set_global_assignment -name VERILOG_FILE "$rtl_root/src/drum_multiplier.v"
+
+# Parameters: N_BITS=8, K_DRUM=4 (INT8 DRUM-4 as used in the paper).
+set_parameter -name N_BITS 8
+set_parameter -name K_DRUM 4
+
+# Virtual pins on all output ports so the fitter does not optimise them away.
+set_instance_assignment -name VIRTUAL_PIN ON -to "product\[*\]"
+
+# 50 MHz timing constraint (consistent with all other PPA configs).
+set sf [open "$drum_dir/clk_drum.sdc" w]
+puts $sf "# No clock ports on drum_multiplier (pure combinational)."
+puts $sf "# Constrain the primary output for STA coverage."
+puts $sf "create_clock -name virt_clk -period 20.000"
+puts $sf "set_output_delay -clock virt_clk -max 0 \[get_ports product\[*\]\]"
+close $sf
+set_global_assignment -name SDC_FILE clk_drum.sdc
+
+set_global_assignment -name POWER_DEFAULT_INPUT_IO_TOGGLE_RATE "12.5%"
+set_global_assignment -name POWER_USE_INPUT_FILES OFF
+
+execute_module -tool map
+execute_module -tool fit
+execute_module -tool asm
+execute_module -tool sta
+execute_module -tool pow
+
+set fit_sum "ppa_drum_k4.fit.summary"
+set pow_sum "ppa_drum_k4.pow.summary"
+set le   [first_num [summary_field $fit_sum "Total logic elements"]]
+set regs [first_num [summary_field $fit_sum "Total registers"]]
+set dsp  [first_num [summary_field $fit_sum "Embedded Multiplier 9-bit elements"]]
+set tot_pwr  [first_num [summary_field $pow_sum "Total Thermal Power Dissipation"]]
+set core_pwr [first_num [summary_field $pow_sum "Core Dynamic Thermal Power Dissipation"]]
+
+# Append result to the shared ppa_results.csv using the same column schema.
+set rf [open $results_csv a]
+puts $rf "drum_K4,NA,4,NA,$le,$regs,$dsp,$tot_pwr,$core_pwr"
+close $rf
+
+puts "  -> LE=$le  regs=$regs  DSP=$dsp  Ptot=$tot_pwr  Pcore=$core_pwr"
+
+project_close
+cd $rtl_root
+
+puts ""
+puts "=================================================="
+puts " DRUM-4 synthesis done. Results appended to: $results_csv"
+puts "=================================================="

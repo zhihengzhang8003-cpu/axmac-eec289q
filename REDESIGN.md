@@ -83,7 +83,7 @@ ICCV 2019) instead of a single global K.
 | 12 | Pareto v2: cross-format NRMSE, FP8 sweep, per-format fronts | done — commit 931ac3a |
 | 13 | UART TX output (uart_tx/uart_framer) + on-chip multi-K test | done — commit e9141b5; **K=6 trunc misclassification confirmed on hardware** |
 
-**All original tasks complete.** Python experiments (350 pytest passed), RTL simulation (ModelSim original 5 tb PASS; tb_drum_multiplier.sv written but ModelSim run pending), Quartus synthesis (EP4CE10, 21% LE, 50 MHz closed), board burn + on-chip K-sweep (5 configs, K=6 trunc argmax 1→3 confirmed).
+**All original tasks complete.** Python experiments (350 pytest passed), RTL simulation (ModelSim all 6 tb PASS — including tb_drum_multiplier: 200 vectors 0 failed 2026-06-05), Quartus synthesis (EP4CE10, 21% LE, 50 MHz closed), board burn + on-chip K-sweep (5 configs, K=6 trunc argmax 1→3 confirmed).
 
 **P0/P1 improvements also complete** — see section below.
 

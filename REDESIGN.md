@@ -97,6 +97,60 @@ ICCV 2019) instead of a single global K.
 
 K=6 trunc misclassification (argmax 1→3) matches Python sim bias +29.9 — validates RTL correctness and demonstrates accuracy collapse at aggressive truncation.
 
+## Formal Error Analysis (P0.2)
+
+### Theorem 1 — Bias Accumulation Bounds
+
+**Setup.** Consider N integer MAC operations. Let ε_i denote the per-MAC
+truncation error for the i-th operation when K bits of the product are
+dropped (i.i.d., uniform distribution assumption over operand pairs).
+
+**Trunc mode** (`product & ~((1<<K)-1)`):
+
+    E[ε_i]         = (2^K - 1) / 2  ≈  2^(K-1)      [always positive]
+    Var[ε_i]       = (2^K)² / 12    ≈  4^K / 12
+    E[∑ε_i]        = N · 2^(K-1)                      [LINEAR in N]
+    Std[∑ε_i]      = √N · 2^K / √12
+
+**Round mode** (`(product + 2^(K-1)) & ~((1<<K)-1)`):
+
+    E[δ_i]         = 0               (exactly)        [zero-mean]
+    Var[δ_i]       = (2^K)² / 12     (same as trunc)
+    E[∑δ_i]        = 0                                 [ZERO for any N]
+    Std[∑δ_i]      = √N · 2^K / √12  (same as trunc)
+
+**Proof sketch.** Trunc maps a product p to p - r where r = p mod 2^K is
+uniform on [0, 2^K). Hence E[r] = (2^K-1)/2 > 0. Round maps p to
+p - r + 2^(K-1) where r is still uniform on [0, 2^K), so the residual
+r - 2^(K-1) is uniform on [-(2^(K-1)), 2^(K-1)) with zero mean. Both
+errors have identical variance = E[r²] - (E[r])² = (2^K-1)(2^K+1)/12 ≈
+4^K/12. By the law of total expectation, N accumulated errors scale as
+stated. □
+
+**Corollary (Transformer Attention).** In scaled dot-product attention,
+each query-key score accumulates over d_head MACs (d_head = 64 or 128
+for typical models). With INT8 and K=4:
+
+    trunc bias per score = d_head × 2^(K-1) = 64 × 8  = 512 LSBs
+    round bias per score = 0
+
+A bias of 512 in INT8 range (±127) means scores are systematically
+inflated beyond the representable range — softmax inputs are saturated,
+attention patterns collapse. Round mode eliminates this at zero area cost.
+
+**Stochastic mode** (Gupta et al. 2015): also zero-mean, identical
+variance, but requires a K-bit LFSR RNG per MAC cycle; round mode
+achieves the same bias cancellation deterministically.
+
+### P0 / P1 Improvement Log
+
+| Label | Work | Status |
+|-------|------|--------|
+| P0.1 | CIFAR-10 approximate MAC accuracy experiment (SimpleCNN, INT8 PTQ) | `experiments/cifar10_experiment.py` added |
+| P0.2 | Formal bias accumulation theorem (Theorem 1 above) | Added to this doc |
+| P1.1 | DRUM-k multiplier: Python (`drum_quantize_operand`, `drum_multiply`, `int_conv2d_drum`) + Verilog (`rtl/src/drum_multiplier.v`) | Done |
+| P1.2 | Quartus synthesis comparison: DRUM vs round vs trunc (see `rtl/vendor/altera/ppa_sweep.tcl`) | TCL update pending |
+
 ## References
 
 `reference/README.md` maps every formula/model in the project to its

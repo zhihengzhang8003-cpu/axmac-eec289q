@@ -15,7 +15,11 @@ import random
 
 import pytest
 
+import numpy as np
+
 from axmac.approx_mac import aca_add, approx_mac_fp, approx_mac_int
+from axmac.approx_mac import drum_quantize_operand, drum_multiply, approx_mac_int_drum
+from axmac.dnn_inference import _drum_quantize_arr, int_matmul_drum, int_conv2d_drum
 from axmac.exact_mac import (
     BF16,
     FP16,
@@ -362,3 +366,83 @@ def test_fp_rounding_modes_stay_finite_and_bounded(fmt, rounding):
         assert math.isfinite(approx)
         if abs(exact) > 1e-6:
             assert abs(exact - approx) / abs(exact) <= loose, (x, y, exact, approx)
+
+
+# ============================================================
+# DRUM approximate multiplier tests
+# ============================================================
+
+def test_drum_quantize_zero_mean():
+    """DRUM error distribution has zero mean (3-sigma statistical test)."""
+    rng = random.Random(42)
+    N = 50_000
+    errors = []
+    for _ in range(N):
+        a = rng.randint(INT8.min_val, INT8.max_val)
+        b = rng.randint(INT8.min_val, INT8.max_val)
+        errors.append(drum_multiply(a, b, INT8, k=4) - a * b)
+    mean_err = sum(errors) / N
+    variance = sum((e - mean_err) ** 2 for e in errors) / N
+    std_err = variance ** 0.5
+    # 3-sigma confidence interval for the sample mean
+    assert abs(mean_err) < 3 * std_err / (N ** 0.5), (
+        f"mean_error={mean_err:.4f} is more than 3-sigma from zero "
+        f"(std={std_err:.4f}, N={N})"
+    )
+
+
+def test_drum_quantize_operand_basic():
+    """drum_quantize_operand: spot-check known values."""
+    assert drum_quantize_operand(0, 4) == 0
+    # 127 = 0b01111111; msb=6, shift=3 -> (127>>3)<<3 = 15<<3 = 120
+    assert drum_quantize_operand(127, 4) == 120
+    # -64: abs=64=2^6, msb=6, shift=3 -> (64>>3)<<3=64, sign -> -64
+    assert drum_quantize_operand(-64, 4) == -64
+    # 1: msb=0, shift=max(0,0-3)=0 -> unchanged
+    assert drum_quantize_operand(1, 4) == 1
+    # k=0 -> 0 regardless of x
+    assert drum_quantize_operand(127, 0) == 0
+    assert drum_quantize_operand(-42, 0) == 0
+
+
+def test_drum_quantize_arr_matches_scalar():
+    """_drum_quantize_arr matches scalar drum_quantize_operand element-wise."""
+    rng = random.Random(7)
+    vals = [rng.randint(INT8.min_val, INT8.max_val) for _ in range(200)]
+    arr = np.array(vals, dtype=np.int64)
+    result = _drum_quantize_arr(arr, k=4)
+    expected = np.array([drum_quantize_operand(v, 4) for v in vals], dtype=np.int64)
+    assert np.array_equal(result, expected), (
+        f"Mismatch at indices: {np.where(result != expected)[0].tolist()}"
+    )
+
+
+def test_drum_mac_int_k0_exact():
+    """drum_multiply with k=8 (full INT8 precision) equals exact product."""
+    rng = random.Random(99)
+    for _ in range(100):
+        a = rng.randint(INT8.min_val, INT8.max_val)
+        b = rng.randint(INT8.min_val, INT8.max_val)
+        assert drum_multiply(a, b, INT8, k=8) == a * b, (
+            f"a={a}, b={b}: drum_multiply gave {drum_multiply(a, b, INT8, k=8)}, "
+            f"exact={a * b}"
+        )
+
+
+def test_int_matmul_drum_shape():
+    """int_matmul_drum returns correct shape and int64 dtype."""
+    rng = np.random.default_rng(0)
+    x = rng.integers(INT8.min_val, INT8.max_val + 1, size=(4, 8), dtype=np.int8)
+    w = rng.integers(INT8.min_val, INT8.max_val + 1, size=(8, 16), dtype=np.int8)
+    out = int_matmul_drum(x, w, fmt=INT8, k=4)
+    assert out.shape == (4, 16), f"Expected shape (4, 16), got {out.shape}"
+    assert out.dtype == np.int64, f"Expected int64 dtype, got {out.dtype}"
+
+
+def test_int_conv2d_drum_shape():
+    """int_conv2d_drum returns correct output shape for 3x3 conv with padding=1."""
+    rng = np.random.default_rng(1)
+    x = rng.integers(INT8.min_val, INT8.max_val + 1, size=(2, 3, 8, 8), dtype=np.int8)
+    w = rng.integers(INT8.min_val, INT8.max_val + 1, size=(16, 3, 3, 3), dtype=np.int8)
+    out = int_conv2d_drum(x, w, fmt=INT8, k=4, padding=1)
+    assert out.shape == (2, 16, 8, 8), f"Expected shape (2, 16, 8, 8), got {out.shape}"

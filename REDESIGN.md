@@ -149,7 +149,7 @@ achieves the same bias cancellation deterministically.
 | P0.1 | CIFAR-10 approximate MAC accuracy experiment (SimpleCNN, INT8 PTQ) | `experiments/cifar10_experiment.py` added |
 | P0.2 | Formal bias accumulation theorem (Theorem 1 above) | Added to this doc |
 | P1.1 | DRUM-k multiplier: Python (`drum_quantize_operand`, `drum_multiply`, `int_conv2d_drum`) + Verilog (`rtl/src/drum_multiplier.v`) | Done |
-| P1.2 | Quartus synthesis comparison: DRUM vs round vs trunc (see `rtl/vendor/altera/ppa_sweep.tcl`) | TCL update pending |
+| P1.2 | Quartus synthesis comparison: DRUM vs round vs trunc (see `rtl/vendor/altera/ppa_sweep.tcl`) | Done — `ppa_drum_k4` target added, outputs to `E:/uart_builds/ppa_drum_k4` |
 
 ## References
 

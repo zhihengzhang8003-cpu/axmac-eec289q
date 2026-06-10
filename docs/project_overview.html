@@ -198,28 +198,53 @@
 
   .file-group-body { padding: 4px 0 12px; }
 
-  /* ── Single file row ── */
-  .file-row {
+  /* ── Collapsible function / file rows ── */
+  details.func-row { border-top: 1px solid #1e2238; }
+  details.func-row > summary {
+    list-style: none;
     display: flex;
     align-items: flex-start;
     gap: 14px;
     padding: 10px 16px;
-    border-top: 1px solid #1e2238;
+    cursor: pointer;
+    user-select: none;
     transition: background .12s;
   }
-  .file-row:hover { background: #181b28; }
-
-  .file-name {
-    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  details.func-row > summary::-webkit-details-marker { display: none; }
+  details.func-row > summary:hover { background: #181b28; }
+  details.func-row[open] > summary { background: rgba(20,23,34,.55); }
+  .func-name {
+    font-family: 'Cascadia Code','Fira Code','Consolas',monospace;
     font-size: 0.87rem;
     color: #a8c4f8;
     white-space: nowrap;
     flex-shrink: 0;
     min-width: 220px;
+    padding-top: 2px;
   }
-  .file-desc { font-size: 0.88rem; color: var(--text); flex: 1; }
-  .file-desc p { margin-bottom: 5px; }
-  .file-desc p:last-child { margin-bottom: 0; }
+  .func-brief {
+    font-size: 0.82rem;
+    color: var(--muted);
+    flex: 1;
+    line-height: 1.5;
+    padding-top: 2px;
+  }
+  .chevron-fn {
+    color: var(--muted);
+    font-size: 0.68rem;
+    flex-shrink: 0;
+    margin-top: 5px;
+    transition: transform .15s;
+  }
+  details.func-row[open] .chevron-fn { transform: rotate(90deg); }
+  .func-body {
+    padding: 8px 16px 14px 250px;
+    border-top: 1px solid #15182a;
+    background: rgba(8,10,18,.4);
+    font-size: 0.88rem;
+  }
+  .func-body p { margin-bottom: 5px; color: var(--text); }
+  .func-body p:last-child { margin-bottom: 0; }
 
   /* ── Tags ── */
   .tag {
@@ -371,9 +396,13 @@
 </summary>
 <div class="sec-body">
 
-  <div class="file-row">
-    <span class="file-name"><span class="tag tag-md">MD</span>README.md</span>
-    <div class="file-desc">
+  <details class="func-row">
+    <summary>
+      <span class="func-name"><span class="tag tag-md">MD</span>README.md</span>
+      <span class="func-brief">项目主文档：研究框架说明、格式支持表、运行命令及核心数值结论</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><strong>项目主文档</strong>，对外的第一张脸。内容包括：</p>
       <p>① 研究框架（baseline → deficiency → contribution）的简短说明<br>
          ② 支持的所有数值格式表（INT4/8/16、FP8 E4M3/E5M2、FP16/BF16/FP32）<br>
@@ -381,11 +410,15 @@
          ④ 运行命令（<code>pytest tests</code> / <code>python experiments/redesign_experiments.py</code>）<br>
          ⑤ 核心数值结论：trunc 偏差 26,617（线性增长）vs stochastic 14（√N 增长）</p>
     </div>
-  </div>
+  </details>
 
-  <div class="file-row">
-    <span class="file-name"><span class="tag tag-md">MD</span>REDESIGN.md</span>
-    <div class="file-desc">
+  <details class="func-row">
+    <summary>
+      <span class="func-name"><span class="tag tag-md">MD</span>REDESIGN.md</span>
+      <span class="func-brief">项目重设计说明书：TA 反馈驱动的重定位、三个缺陷识别、Theorem 1 证明及 CIFAR-10 结果</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><strong>项目重设计说明书</strong>，记录了 TA 反馈驱动的重定位过程及后续 P0/P1 改进。包括：</p>
       <p>① <em>Why this redesign</em>：原始版本只复现没有改进，缺少研究 narrative<br>
          ② 基线定义：截断乘法器（Mahdiani 2010）+ ACA 加法器（Kahng &amp; Kang 2012）<br>
@@ -398,14 +431,87 @@
       <div class="finding red">K=6 trunc 在真实 FPGA 上 argmax 从 1 变成 <strong>3</strong>，与 Python 仿真偏差 +29.9 吻合，验证 RTL 正确性。</div>
       <div class="finding green">CIFAR-10（INT8 PTQ，10,000 张）：round 模式在 K=2~6 全程维持 <strong>83.0%</strong>，与精确基线差距 &lt;0.1pp；trunc K=6 崩溃至 <strong>10.8%</strong>（+72.1pp 差距）。</div>
     </div>
-  </div>
+  </details>
 
-  <div class="file-row">
-    <span class="file-name"><span class="tag tag-doc">DOCX</span>Bias_Aware_Approximate_<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MAC_IEEE_v3.docx</span>
-    <div class="file-desc">
-      <p><strong>最终 IEEE 格式报告（第 3 版）</strong>。包含 RTL 实现章节、PPA 分析、片上实验结果和蓝色批注修订。这是提交给助教的正式文档。</p>
+  <details class="func-row">
+    <summary>
+      <span class="func-name"><span class="tag tag-doc">DOCX</span>Bias_Aware_Approximate_<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MAC_IEEE_v3.docx</span>
+      <span class="func-brief">IEEE 报告第 3 版（已归档）：含 RTL 章节、PPA 分析和批注，CIFAR-10 前版本</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p><strong>IEEE 格式报告（第 3 版，已归档）</strong>。含 RTL 实现章节、PPA 分析、片上实验结果和蓝色批注修订。CIFAR-10 实验完成前的版本，已被 v4 替代，保留用于版本对比。</p>
     </div>
-  </div>
+  </details>
+
+  <details class="func-row">
+    <summary>
+      <span class="func-name"><span class="tag tag-doc">DOCX</span>Bias_Aware_Approximate_<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MAC_IEEE_v4.docx</span>
+      <span class="func-brief">IEEE 报告第 4 版（当前版本）：含 Theorem 1、CIFAR-10 结果（83.0% vs 10.8%）、Future Work</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p><strong>IEEE 格式报告（第 4 版，当前提交版本）</strong>。在 v3 基础上新增：</p>
+      <p>① <strong>Theorem 1</strong>：偏差形式证明（trunc O(N)，round 0）及 Transformer Corollary<br>
+         ② <strong>V-D 节 CIFAR-10 实验</strong>（2026-06-05）：round K=6 → 83.0%，trunc K=6 → 10.8%，+72.1pp 差距<br>
+         ③ <strong>Future Work 节</strong>：ASIC 综合、ResNet-50、Transformer 注意力偏差三方向</p>
+      <div class="finding green">round 模式以 &lt;0.53 mW 代价实现无偏，CIFAR-10 准确率从 10.8% 提升至 83.0%。</div>
+    </div>
+  </details>
+
+  <details class="func-row">
+    <summary>
+      <span class="func-name"><span class="tag tag-doc">PPTX</span>AxMAC_Defense_Slides.pptx</span>
+      <span class="func-brief">答辩 PPT（11 张，~10 min）：含全 12 张中文讲稿（python-pptx 写入 notes）</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p><strong>EEC 289Q 课程最终答辩演示文稿</strong>，暗色主题，约 10 分钟。结构：</p>
+      <p>Slide 1 标题+路线图 → Slide 2 动机 → Slide 3 Theorem 1 → Slide 4 Contribution A → Slide 5 RTL 验证 → Slide 6 FPGA 片上验证 → Slide 7 CIFAR-10 → Slide 8 PPA → Slide 9 Contribution B → Slide 10 Future Work → Slide 11 结论 → Slide 12 参考文献</p>
+      <p>全 12 张中文讲稿已通过 python-pptx 写入 notes（2026-06-06）。PPT 演讲者视图可直接查看每张讲稿。</p>
+      <div class="finding red">核心证据 Slide 6：K=6 trunc 导致真实硬件上 argmax 1→3 误分类；K=4 round 保持正确。</div>
+    </div>
+  </details>
+
+  <details class="func-row">
+    <summary>
+      <span class="func-name"><span class="tag tag-md">MD</span>CODE_WALKTHROUGH.md</span>
+      <span class="func-brief">Python 层代码逐步讲解：Steps 1–12，含代码位置、函数签名和核心逻辑说明</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p><strong>Python 代码完整讲解文档</strong>，Steps 1–12 覆盖：</p>
+      <p>Step 1 数值格式定义 → Step 2 精确 MAC / Booth radix-4 → Step 3 近似 MAC 舍入逻辑 → Step 4 ACA 加法器 → Step 5 DRUM 乘法器 → Step 6 功耗模型 → Step 7 误差统计 → Step 8 向量化推理注入 → Step 9 层敏感度探测 → Step 10 贪心 K 分配 → Step 11 Pareto sweep → Step 12 CIFAR-10 实验</p>
+    </div>
+  </details>
+
+  <details class="func-row">
+    <summary>
+      <span class="func-name"><span class="tag tag-md">MD</span>RTL_WALKTHROUGH.md</span>
+      <span class="func-brief">RTL 层代码逐步讲解：Steps 1–12，含 RTL↔Python 对照表和 ModelSim 验证策略</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p><strong>RTL 代码完整讲解文档</strong>，Steps 1–12 覆盖 9 个模块：</p>
+      <p>Step 1 LFSR → Step 2 mac_unit → Step 3 aca_adder → Step 4 drum_multiplier → Step 5 mac_array → Step 6 mlp_top FSM → Step 7 mlp_top_demo → Step 8 UART TX/framer → Step 9 golden CSV 体系 → Step 10 ModelSim testbench 策略 → Step 11 Quartus PPA → Step 12 RTL↔Python 对照</p>
+    </div>
+  </details>
+
+  <details class="func-row">
+    <summary>
+      <span class="func-name"><span class="tag tag-md">MD</span>ONCHIP_TEST_RESULTS.md</span>
+      <span class="func-brief">四层片上测试分析：ModelSim / Toy MLP logit / Quartus PPA / 板载 UART 完整记录</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p><strong>片上测试完整分析文档</strong>，四个层次：</p>
+      <p>① ModelSim 仿真（6 个 tb 全 PASS，验证策略说明）<br>
+         ② Toy MLP logit 对比（6 种 K/mode 配置，10 个 logit 与 Python golden 逐行核对）<br>
+         ③ Quartus PPA（trunc vs round 差 0.53 mW；stochastic 多 64 寄存器 = LFSR 宽度）<br>
+         ④ 板载 UART（5 个烧录配置、协议格式 0xAB|10×int32、read_uart.py 解析）</p>
+      <div class="finding red">K=6 trunc argmax 1→3 误分类；K=4 round 保持正确 — 三层测试共同支撑 Contribution A。</div>
+    </div>
+  </details>
 
 </div>
 </details>
@@ -429,31 +535,47 @@
 <details class="file-group" open>
 <summary><span class="tag tag-py">PY</span> exact_mac.py — 精确 MAC 参考实现（所有实验的 golden reference）<span class="chevron">▶</span></summary>
 <div class="file-group-body">
-  <div class="file-row">
-    <span class="file-name">格式描述符</span>
-    <div class="file-desc">
+  <details class="func-row">
+    <summary>
+      <span class="func-name">格式描述符</span>
+      <span class="func-brief">IntFormat / FPFormat 两个 frozen dataclass，定义 INT4/8/16 及 FP8 E4M3/E5M2 等所有数值格式的元信息</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>定义 <code>IntFormat</code>（INT4/8/16）和 <code>FPFormat</code>（FP32/FP16/BF16/FP8 E4M3/E5M2）两个 frozen dataclass。每个格式对象携带位宽、指数位、尾数位等元信息。</p>
       <p>FP8 E4M3 的特殊处理：<span class="hl-yellow">has_inf=False</span>——没有无穷大，全 1 指数保留给有限正常数，只有全 1 指数 + 全 1 尾数才是 NaN（Micikevicius et al. 2022）。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">mac_int()</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">mac_int()</span>
+      <span class="func-brief">整数 MAC（acc + a×b），Booth radix-4 部分积，32 位有符号累加器</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>整数 MAC：<code>acc + a × b</code>，使用 <strong>Booth radix-4 部分积</strong>，32 位有符号累加器，两补码精确实现。<code>return_pps=True</code> 时返回部分积列表供功耗模型使用。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">mac_fp()</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">mac_fp()</span>
+      <span class="func-brief">浮点 MAC，纯整数位操作实现 fp_multiply + fp_add，与 numpy 结果精确一致</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>浮点 MAC：调用 <code>fp_multiply</code> + <code>fp_add</code>。整个浮点路径均为纯整数位操作（struct 解码 → 整数尾数乘 → 单步 RNE 归一化 → 加法对齐），与 numpy 的 float32/float16 结果精确一致（由 test_exact_mac.py 验证）。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">_renormalize_and_pack()</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">_renormalize_and_pack()</span>
+      <span class="func-brief">核心归一化函数：单步 RNE 舍入打包到任意 FPFormat，避免二次舍入误差</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>核心归一化函数。将 <span class="formula">V = M × 2^(E - mant_bits)</span> 以 <strong>单步 RNE</strong> 舍入打包进任意 FPFormat，避免二次舍入误差（先归一化再 subnormal 移位会产生的 double-rounding artifact）。FP8 encode/decode 复用此函数。</p>
     </div>
-  </div>
+  </details>
 </div>
 </details>
 
@@ -461,17 +583,25 @@
 <details class="file-group" open>
 <summary><span class="tag tag-py">PY</span> approx_mac.py — 近似 MAC（截断乘法器 + ACA 加法器，Contribution A 核心）<span class="chevron">▶</span></summary>
 <div class="file-group-body">
-  <div class="file-row">
-    <span class="file-name">三个旋钮</span>
-    <div class="file-desc">
+  <details class="func-row">
+    <summary>
+      <span class="func-name">三个旋钮</span>
+      <span class="func-brief">K（截断深度）、W（ACA 窗口宽度）、rounding（舍入模式），三个正交参数控制近似精度与硬件代价</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><strong>K</strong>：丢弃乘积最低 K 位（截断乘法器，Mahdiani et al. TCAS-I 2010）<br>
          <strong>W（aca_window）</strong>：ACA 近似加法器，进位链切成宽度 W 的独立段（Kahng &amp; Kang DAC 2012）<br>
          <strong>rounding</strong>：K=0 或 W≥acc_bits 时退化为精确路径，与 exact_mac 字节相同</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">三种舍入模式<br>（Contribution A）</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">三种舍入模式<br>（Contribution A）</span>
+      <span class="func-brief">trunc（有偏基线）/ round（零均值，与 trunc 同代价）/ stochastic（真正零均值，需 LFSR）的误差特征与硬件代价对比</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <table class="result-table">
         <tr><th>模式</th><th>操作</th><th>误差特征</th><th>硬件代价</th></tr>
         <tr>
@@ -494,21 +624,29 @@
         </tr>
       </table>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">aca_add()</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">aca_add()</span>
+      <span class="func-brief">ACA 近似加法器：将加法切成宽度 W 的独立段，段间无进位传播，W≥bits 时退化为精确加法</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>ACA 近似加法器：将 bits 宽的加法切成若干宽度 W 的段，段间无进位传播。W ≥ bits 时退化为精确加法。误差来源：高位段无法接收低位段的进位。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">DRUM-k 扩展<br>（P1.1 新增）</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">DRUM-k 扩展<br>（P1.1 新增）</span>
+      <span class="func-brief">drum_quantize_operand / drum_multiply / approx_mac_int_drum：基于动态范围的无偏近似乘法器，100k 样本偏差 −0.5</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><strong>drum_quantize_operand(x, k)</strong>：保留整数 x 的 k 个最高有效位，清零其余位——DRUM 乘法器的操作数预处理（Hashemi et al., ICCAD 2015）。</p>
       <p><strong>drum_multiply(a, b, fmt, k)</strong>：对两个操作数分别 DRUM-k 量化后精确相乘，零均值误差（100k 样本实测偏差 −0.5，SEM=1.3）。</p>
       <p><strong>approx_mac_int_drum(a, b, acc, fmt, k)</strong>：DRUM-k MAC 单元，含 ACA 累加，接口与 approx_mac_int 对称。硬件代价：前导位计数器 + 桶移位器 + k×k 乘法器（比 n×n 精确乘法器面积小，但比 round 模式复杂）。</p>
     </div>
-  </div>
+  </details>
 </div>
 </details>
 
@@ -516,31 +654,47 @@
 <details class="file-group">
 <summary><span class="tag tag-py">PY</span> power_model.py — 功耗模型（45nm，Horowitz ISSCC 2014）<span class="chevron">▶</span></summary>
 <div class="file-group-body">
-  <div class="file-row">
-    <span class="file-name">基础能量表</span>
-    <div class="file-desc">
+  <details class="func-row">
+    <summary>
+      <span class="func-name">基础能量表</span>
+      <span class="func-brief">45nm 1V 1GHz 基础能量锚点（Horowitz 2014）：INT8 mult = 0.2 pJ，FP32 mult = 3.7 pJ</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>每种格式的乘法器 + 加法器基础能量（pJ），锚定在 Horowitz ISSCC 2014 的 45nm 1V 1GHz 数据：INT8 mult = 0.2 pJ，FP16 mult = 1.1 pJ，FP32 mult = 3.7 pJ。FP8 约为 FP16 的 1/3，与 Hopper 级 FP8 单元一致。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">truncation_savings()<br>aca_savings()</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">truncation_savings()<br>aca_savings()</span>
+      <span class="func-brief">截断 K 位与 ACA 窗口 W 各自节省能量的解析公式，量化近似代价</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><span class="formula">savings_trunc = K(2N-K) / (2N²)</span>：截断 K 位节省的部分积矩阵三角区面积比例，上限 0.95<br>
          <span class="formula">savings_aca = (acc_bits - W) / acc_bits × 0.5</span>：ACA 节省的进位链动态功耗</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">rng_energy_pJ()</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">rng_energy_pJ()</span>
+      <span class="func-brief">K 位 LFSR 每 MAC 能量：K×FF_energy + taps×XOR_energy，量化 stochastic 相对 round 的额外代价</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>stochastic rounding 需要的 K 位 LFSR 的每 MAC 能量：<span class="formula">K × FF_energy + taps × XOR_energy</span>。这正是 <code>round</code> 相对于 <code>stochastic</code> 节省的能量，是 Contribution A 的硬件成本论证。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">pp_switching_activity()<br>energy_from_activity()</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">pp_switching_activity()<br>energy_from_activity()</span>
+      <span class="func-brief">数据相关开关活动度模型：用操作数 Hamming 距离代替默认 α=0.5，使 CNN 激活序列报告更低能量</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>数据相关的开关活动度模型：用连续周期操作数的 Hamming 距离代替默认的 α=0.5 假设，使 CNN 相关激活序列报告更低能量。</p>
     </div>
-  </div>
+  </details>
 </div>
 </details>
 
@@ -548,25 +702,37 @@
 <details class="file-group">
 <summary><span class="tag tag-py">PY</span> accuracy_eval.py — 精度评估（MED / RMSE / NMED / bias 统计）<span class="chevron">▶</span></summary>
 <div class="file-group-body">
-  <div class="file-row">
-    <span class="file-name">ErrorStats</span>
-    <div class="file-desc">
+  <details class="func-row">
+    <summary>
+      <span class="func-name">ErrorStats</span>
+      <span class="func-brief">评估结果容器：med / rmse / max_abs_err / nmed / bias 五指标，bias 是 Contribution A 的核心对比量</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>每次评估返回的结果容器，包含 5 个指标：<br>
         <code>med</code>（均绝对误差）、<code>rmse</code>（均方根误差）、<code>max_abs_err</code>、<code>nmed</code>（归一化 MED）、<span class="hl-yellow"><code>bias</code></span>（均误差，Contribution A 的核心对比量）</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">error_stats_int()<br>error_stats_fp()</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">error_stats_int()<br>error_stats_fp()</span>
+      <span class="func-brief">对一批随机操作数三元组逐对比较精确与近似 MAC，聚合所有误差指标</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>对一批随机操作数三元组 (a, b, acc)，逐对调用精确 MAC 和近似 MAC，聚合误差。FP 路径跳过产生 Inf/NaN 的样本。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">sweep_int()<br>sweep_fp()</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">sweep_int()<br>sweep_fp()</span>
+      <span class="func-brief">在 (K, W) 网格上批量扫描，共享同一批样本（paired comparison），支持三种输入分布</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>在 (K, W) 网格上批量扫描，同一批样本用于所有配置（paired comparison），确保比较公平。支持 uniform/normal/relu 分布。</p>
     </div>
-  </div>
+  </details>
 </div>
 </details>
 
@@ -574,45 +740,69 @@
 <details class="file-group">
 <summary><span class="tag tag-py">PY</span> dnn_inference.py — DNN 推理引擎（向量化，支持 PyTorch 可选后端）<span class="chevron">▶</span></summary>
 <div class="file-group-body">
-  <div class="file-row">
-    <span class="file-name">truncate_products()</span>
-    <div class="file-desc">
+  <details class="func-row">
+    <summary>
+      <span class="func-name">truncate_products()</span>
+      <span class="func-brief">_apply_rounding 的 NumPy 向量化版本，对整个乘积张量一次性应用 trunc/round/stochastic</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><code>approx_mac._apply_rounding</code> 的 NumPy 向量化版本。对整个乘积张量 (M, K_dim, N) 一次性应用 trunc/round/stochastic，<code>&amp; ~mask</code> 对有符号 int64 的行为与 Python 任意精度整数完全一致。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">int_matmul_approx()</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">int_matmul_approx()</span>
+      <span class="func-brief">向量化整数矩阵乘：广播乘积 → 截断 → reduction 求和 → 两补码包装，与逐 MAC 循环语义等价</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>向量化整数矩阵乘：先广播计算所有元素乘积 <code>a[:,:,None] × b[None,:,:]</code>，再截断，再沿 reduction 轴求和，最后两补码包装到 acc_bits 宽度。与逐 MAC 循环语义等价（由 pytest 验证）。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">int_conv2d_approx()</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">int_conv2d_approx()</span>
+      <span class="func-brief">im2col + matmul 实现的近似卷积，将 (N,C,H,W) 展开为 patches 矩阵后复用 int_matmul_approx</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><strong>im2col + matmul</strong> 实现的近似卷积：将 (N,C,H,W) 的输入展开为 patches 矩阵，权重 reshape 为 (C_in×kH×kW, C_out)，复用 <code>int_matmul_approx</code>。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">tiny_mlp_forward()</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">tiny_mlp_forward()</span>
+      <span class="func-brief">N 层 ReLU MLP 前向传播，K 参数支持标量（均匀）或列表（非均匀，Contribution B）</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>N 层 ReLU MLP 前向传播。<code>K</code> 参数可以是：<br>
         · 标量 int → 全局统一 K（<span class="hl-orange">Contribution B 的 baseline</span>）<br>
         · 列表 → 每层不同 K（<span class="hl-green">Contribution B 的非均匀分配</span>，由 sensitivity.py 生成）</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">make_approx_linear_torch()</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">make_approx_linear_torch()</span>
+      <span class="func-brief">可选 PyTorch 后端：forward 调用 NumPy INT linear，backward 用 straight-through estimator</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>可选 PyTorch 后端：返回一个 <code>torch.autograd.Function</code>，forward 调用 NumPy INT linear，backward 用 <strong>straight-through estimator</strong>（梯度直接穿过截断操作，DNN 近似硬件论文的标准做法）。torch 未安装时懒加载失败，对应 pytest 跳过。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">DRUM 向量化后端<br>（P1.1 新增）</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">DRUM 向量化后端<br>（P1.1 新增）</span>
+      <span class="func-brief">_drum_quantize_arr + int_matmul_drum 等三个接口，NumPy 向量化 DRUM-k，无 Python 循环</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><code>_drum_quantize_arr(x, k)</code>：NumPy 向量化 DRUM-k 操作数量化，使用 element-wise 位移（无 Python 循环）。<br>
          <code>int_matmul_drum</code> / <code>int_linear_drum</code> / <code>int_conv2d_drum</code>：与 int_matmul_approx 等函数接口对称，但使用 DRUM-k 替代截断，k 参数替代 K 和 rounding。</p>
     </div>
-  </div>
+  </details>
 </div>
 </details>
 
@@ -620,27 +810,39 @@
 <details class="file-group">
 <summary><span class="tag tag-py">PY</span> sensitivity.py — 层间敏感度分析 &amp; 非均匀 K 分配（Contribution B）<span class="chevron">▶</span></summary>
 <div class="file-group-body">
-  <div class="file-row">
-    <span class="file-name">问题背景</span>
-    <div class="file-desc">
+  <details class="func-row">
+    <summary>
+      <span class="func-name">问题背景</span>
+      <span class="func-brief">均匀 K 的浪费：第一层占 95.8% MAC 却与其他层分配相同截断深度，需层间差异化分配</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>全局统一 K 的缺陷：Demo MLP 第一层占 <span class="hl-yellow">95.8%</span> 的 MAC，却和其他层分到同样的截断深度。误差容忍度高、MAC 多的层应该承担更多截断以节省更多能量。</p>
       <p>参考工作：HAWQ（Dong et al. ICCV 2019，Hessian 敏感度 → 精度分配）、ALWANN（Mrazek et al. ICCAD 2019，逐层近似乘法器选择）。本项目用直接扰动探针代替 Hessian，因截断乘法器的扰动是精确可计算的。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">layer_sensitivity()</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">layer_sensitivity()</span>
+      <span class="func-brief">逐层扰动分析：孤立每层置 K=K_probe，测量输出 NRMSE 作为该层对截断的敏感度得分</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>逐层扰动分析：每次将第 i 层置 K=K_probe，其余层精确（K=0），测量输出 NRMSE 作为该层的敏感度得分。得分越高 = 对截断越敏感 = 应分配更小的 K。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">allocate_K()</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">allocate_K()</span>
+      <span class="func-brief">贪心边际分配：按 mac_counts / (sensitivity × (K+1)) 得分将截断预算分配给收益最大的层</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>贪心边际分配：每个截断单位分给当前得分最高的层，得分定义为：<br>
         <span class="formula">score_i = mac_counts[i] / (sensitivity[i] × (K[i] + 1))</span><br>
         分子 = 能量收益（MAC 多 → 节省多），分母 = 精度代价（敏感度 × 已有截断深度，防止一层吃光全部预算）。等敏感度等 MAC 时退化为 uniform_K。</p>
     </div>
-  </div>
+  </details>
 </div>
 </details>
 
@@ -648,33 +850,49 @@
 <details class="file-group">
 <summary><span class="tag tag-py">PY</span> pareto.py — 设计空间扫描与 Pareto 前沿分析<span class="chevron">▶</span></summary>
 <div class="file-group-body">
-  <div class="file-row">
-    <span class="file-name">DesignPoint</span>
-    <div class="file-desc">
+  <details class="func-row">
+    <summary>
+      <span class="func-name">DesignPoint</span>
+      <span class="func-brief">每个 (格式, K, W) 配置的完整描述容器：能量 + 5 种误差指标 + error_rel_bias</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>每个 (格式, K, W) 配置的完整描述：<code>fmt_name</code>、<code>K</code>、<code>aca_window</code>、<code>energy_pJ</code>（总能量）、5 种误差指标（med/rmse/nmed/nrmse/max_abs）、<code>error_rel_bias</code>（跟踪 Contribution A 偏差消除效果）。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">sweep_all_designs()</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">sweep_all_designs()</span>
+      <span class="func-brief">所有格式在同一批 float64 参考信号上评估，使 INT4 与 FP32 可落在同一 Pareto 平面比较</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>所有格式在同一批 float64 参考信号上评估（公共 ground truth）。INT/FP 格式在量化误差 + 截断误差 + ACA 误差统一落在同一 NRMSE 轴，使 INT4 和 FP32 可直接放在同一 Pareto 平面比较。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">global_front()<br>per_format_fronts()</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">global_front()<br>per_format_fronts()</span>
+      <span class="func-brief">跨格式全局 Pareto 前沿（能量 vs NRMSE）及每种格式内部 K+W 效率曲线</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><code>global_front</code>：跨格式 Pareto 前沿（能量 vs NRMSE），<span class="hl-yellow">只用 NRMSE 作为误差轴</span>（error_nmed 因各格式 dynamic range 量级差异过大而被禁止用于跨格式比较）。<br>
          <code>per_format_fronts</code>：每种格式内部的 K+W 效率曲线。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">_canonicalise_windows()<br>_filter_usable()</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">_canonicalise_windows()<br>_filter_usable()</span>
+      <span class="func-brief">数据清洗：W≥acc_bits 折叠为 None，NRMSE 超阈值×10 的无效噪声配置过滤掉</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>两个数据清洗步骤：<br>
         · W ≥ acc_bits 折叠到 None，去除重复点<br>
         · NRMSE &gt; 基线 × 10 的配置过滤掉（ACA 窗口太窄导致的无效噪声点）</p>
     </div>
-  </div>
+  </details>
 </div>
 </details>
 
@@ -699,50 +917,74 @@
 <details class="file-group" open>
 <summary><span class="tag tag-py">PY</span> redesign_experiments.py — 主实验驱动脚本<span class="chevron">▶</span></summary>
 <div class="file-group-body">
-  <div class="file-row">
-    <span class="file-name">Section 1：<br>偏差累积验证</span>
-    <div class="file-desc">
+  <details class="func-row">
+    <summary>
+      <span class="func-name">Section 1：<br>偏差累积验证</span>
+      <span class="func-brief">N=4096 INT8 dot product 对比三种舍入模式累积误差：trunc ≈ 26617（线性）vs stochastic ≈ 14（√N）</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>在积累深度 N=4096 的 INT8 dot product 上对比三种舍入模式的累积误差，直接验证项目的核心缺陷论点：</p>
       <div class="finding red">trunc 累积误差 ≈ <strong>26,617</strong>（线性 ∝ N）→ stochastic ≈ <strong>14</strong>（√N 有界）</div>
       <p>输出：<code>bias_accumulation.csv</code></p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">Section 2：<br>三路舍入对比</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">Section 2：<br>三路舍入对比</span>
+      <span class="func-brief">INT8 K=6 单 MAC 三路逐样本偏差统计：trunc +29.9 → round −1.7 → stochastic −0.8</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>INT8 K=6 的单 MAC 三路对比（trunc vs round vs stochastic），逐样本统计偏差：</p>
       <div class="finding green">bias：<strong>+29.9</strong>（trunc）→ <strong>−1.7</strong>（round）→ <strong>−0.8</strong>（stochastic）</div>
       <p>输出：<code>three_way_rounding.csv</code>，同时输出 <code>accuracy_vs_K.csv</code></p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">Section 3：<br>Contribution B 验证</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">Section 3：<br>Contribution B 验证</span>
+      <span class="func-brief">同等能量预算下非均匀 K vs 均匀 K 的 256 宽 MLP logit-NRMSE 对比，验证 sensitivity-driven 分配收益</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>在相同推理能量预算下，sensitivity-driven 非均匀 K 分配 vs 均匀 K，比较 256 宽 MLP 的 logit-NRMSE。输出：<code>layer_allocation.csv</code>、<code>mlp_inference.csv</code></p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">Section 4：<br>Pareto 扫描</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">Section 4：<br>Pareto 扫描</span>
+      <span class="func-brief">INT4/8/16 + FP8/FP16/BF16/FP32 全格式 (K, W) 扫描，生成全局及按格式 Pareto 前沿数据</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>INT4/8/16 + FP8/FP16/BF16/FP32 全格式 (K, W) 扫描，生成全局 Pareto 前沿数据。输出：<code>int_sweep.csv</code>、<code>fp_sweep.csv</code>、<code>int_pareto*.csv</code>、<code>fp_pareto*.csv</code></p>
     </div>
-  </div>
+  </details>
 </div>
 </details>
 
 <details class="file-group">
 <summary><span class="tag tag-py">PY</span> cifar10_experiment.py — CIFAR-10 近似 MAC 精度实验（P0.1）<span class="chevron">▶</span></summary>
 <div class="file-group-body">
-  <div class="file-row">
-    <span class="file-name">SimpleCNN + PTQ + 近似推理</span>
-    <div class="file-desc">
+  <details class="func-row">
+    <summary>
+      <span class="func-name">SimpleCNN + PTQ + 近似推理</span>
+      <span class="func-brief">CIFAR-10 训练 SimpleCNN（30 epoch，Adam），INT8 PTQ 校准后用 trunc/round/DRUM 三种模式逐 K 评估</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>在 CIFAR-10 上训练 SimpleCNN（3 Conv + 2 FC，无 BN，30 epoch，Adam），然后做 INT8 PTQ（per-tensor 对称量化 + 8-batch 校准），用 trunc/round/DRUM 三种模式跑近似推理，逐 K 报告 top-1 accuracy。</p>
       <p>运行：<code>py -3.14 experiments/cifar10_experiment.py</code>（首次约 15 min 训练；已有 checkpoint 则直接评估）</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">关键实验结果<br>（CIFAR-10 INT8）</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">关键实验结果<br>（CIFAR-10 INT8）</span>
+      <span class="func-brief">round K=6 维持 83.0%，trunc K=6 崩溃至 10.8%（+72.1pp 差距），端到端验证 Contribution A</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <table class="result-table">
         <tr><th>K</th><th>trunc</th><th>round</th><th>round−trunc</th><th>DRUM-4</th></tr>
         <tr><td>0（精确基线）</td><td class="pass">82.9%</td><td class="pass">82.9%</td><td>0.0pp</td><td>82.4%</td></tr>
@@ -754,65 +996,136 @@
       <div class="finding red" style="margin-top:8px;">trunc K=6 精度崩溃至 <strong>10.8%</strong>（接近随机猜测），与 FPGA 片上误分类结果吻合。</div>
       <div class="finding green">round 模式在 K=2~6 全程维持 <strong>~83%</strong>，与精确基线差距 &lt;0.1pp，硬件代价为零。</div>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">输出</span>
-    <div class="file-desc"><code>results/cifar10_accuracy.csv</code>（K, mode, accuracy, delta_from_exact）；<code>results/cifar10_cnn.pth</code>（训练 checkpoint，float32 83.25%）</div>
-  </div>
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">输出</span>
+      <span class="func-brief">cifar10_accuracy.csv（K, mode, accuracy, delta_from_exact）及 cifar10_cnn.pth（float32 83.25% checkpoint）</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p><code>results/cifar10_accuracy.csv</code>（K, mode, accuracy, delta_from_exact）；<code>results/cifar10_cnn.pth</code>（训练 checkpoint，float32 83.25%）</p>
+    </div>
+  </details>
 </div>
 </details>
 
 <details class="file-group">
 <summary><span class="tag tag-py">PY</span> generate_figures.py — 图表生成脚本<span class="chevron">▶</span></summary>
 <div class="file-group-body">
-  <div class="file-row">
-    <span class="file-name">输入 / 输出</span>
-    <div class="file-desc">
-      <p>读取 <code>results/*.csv</code>，用 matplotlib 生成报告所需的所有图表，输出到 <code>results/figures/</code>。包括：偏差累积对比图、三路舍入柱状图、K 扫描精度曲线、全局 Pareto 前沿散点图、FP8 分析图。</p>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">输入 / 输出</span>
+      <span class="func-brief">读取 results/*.csv，matplotlib 生成 Fig1~5 及 FP8 专项图，输出到 results/figures/</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p>读取 <code>results/*.csv</code>，用 matplotlib 生成报告所需的所有图表，输出到 <code>results/figures/</code>。生成内容：</p>
+      <p>· <strong>Fig 1</strong> 偏差累积对比图（trunc 线性增长 vs stochastic √N 有界）<br>
+         · <strong>Fig 2</strong> 三路舍入误差分布柱状图（trunc / round / stochastic bias 对比）<br>
+         · <strong>Fig 3</strong> K 扫描 MED/bias 精度曲线<br>
+         · <strong>Fig 4</strong> 全局 Pareto 前沿散点图（INT4/8/16 + FP8/FP16/BF16/FP32，能量 vs NRMSE）<br>
+         · <strong>Fig 5</strong> CIFAR-10 top-1 精度对比折线图（trunc vs round vs DRUM，K=0~6）<br>
+         · FP8 E4M3/E5M2 专项分析图（量化误差 vs 截断误差拆分）</p>
+      <p>注：需先运行 <code>redesign_experiments.py</code> 和 <code>cifar10_experiment.py</code> 生成 CSV 数据；编码需 Python ≥ 3.9（UTF-8 locale 修复已在当前版本中应用）。</p>
     </div>
-  </div>
+  </details>
 </div>
 </details>
 
 <details class="file-group">
 <summary><span class="tag tag-csv">CSV</span> results/ — 所有实验数据文件<span class="chevron">▶</span></summary>
 <div class="file-group-body">
-  <div class="file-row">
-    <span class="file-name">bias_accumulation.csv</span>
-    <div class="file-desc">N 从 1 到 4096 的累积误差，trunc/round/stochastic 三列，证明线性 vs √N 增长。</div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">three_way_rounding.csv</span>
-    <div class="file-desc">INT8 K=6 单 MAC 三种模式的逐样本误差，用于计算偏差统计。</div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">accuracy_vs_K.csv</span>
-    <div class="file-desc">K 从 0 到 7 的 MED/bias 扫描，展示截断深度对精度的影响。</div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">layer_allocation.csv</span>
-    <div class="file-desc">每层的敏感度得分、MAC 数量、均匀 K vs sensitivity-driven K 分配结果。</div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">mlp_inference.csv</span>
-    <div class="file-desc">匹配能量预算下，uniform K vs non-uniform K 的 logit-NRMSE 对比。</div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">int_sweep.csv<br>fp_sweep.csv</span>
-    <div class="file-desc">全格式 (K, W) 扫描的完整设计点数据（能量 + 各误差指标），供 Pareto 分析使用。</div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">int_pareto*.csv<br>fp_pareto*.csv</span>
-    <div class="file-desc">各格式的 Pareto 前沿点，按格式分文件存储（int_pareto_int8.csv 等）。</div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">fp8_study.csv</span>
-    <div class="file-desc">FP8 E4M3 / E5M2 专项扫描数据，展示新型低精度格式在 (能量, 误差) 平面的位置。</div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">redesign_summary.txt<br>run_summary.txt</span>
-    <div class="file-desc">核心数值结论的纯文本汇总，方便快速查阅而无需解析 CSV。</div>
-  </div>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">bias_accumulation.csv</span>
+      <span class="func-brief">N=1~4096 累积误差，trunc/round/stochastic 三列，证明线性 vs √N 增长规律</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p>N 从 1 到 4096 的累积误差，trunc/round/stochastic 三列，证明线性 vs √N 增长。每行包含 N 和三种模式的累积 bias 值，直接驱动 Fig 1 偏差累积对比图。</p>
+    </div>
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">three_way_rounding.csv</span>
+      <span class="func-brief">三种舍入模式在 INT8 K=6 下的逐样本误差列表，100k 样本，含 error / abs_error / mode 三列</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p>三种舍入模式（trunc/round/stochastic）在 INT8 K=6 下的逐样本误差列表，包含 error、abs_error、mode 三列，100k 样本，用于计算 bias = +29.9 / −1.7 / −0.8。</p>
+    </div>
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">accuracy_vs_K.csv</span>
+      <span class="func-brief">K=0~7 的 MED / RMSE / bias / NMED 四指标扫描结果（三种模式），直接驱动 Fig 3 精度曲线</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p>K 从 0 到 7 的 MED、RMSE、bias、NMED 四指标扫描结果（trunc/round/stochastic 三列），直接驱动 Fig 3 精度曲线，展示截断深度对各模式精度的影响趋势。</p>
+    </div>
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">layer_allocation.csv</span>
+      <span class="func-brief">每层的敏感度得分、MAC 数量及均匀 K vs sensitivity-driven K 分配对比结果</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p>每层的敏感度得分、MAC 数量、均匀 K vs sensitivity-driven K 分配结果。包含 layer_idx、sensitivity_score、mac_count、uniform_K、nonuniform_K 等列，用于可视化 Contribution B 的逐层 K 分配差异。</p>
+    </div>
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">mlp_inference.csv</span>
+      <span class="func-brief">相同能量预算下 uniform K vs non-uniform K 的 logit-NRMSE 对比，含 improvement_pct 列</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p>匹配能量预算下 uniform K vs non-uniform K 的对比：每行含 budget（总截断位），uniform_K（均匀分配值），logit_nrmse_uniform，logit_nrmse_nonuniform，improvement_pct。</p>
+    </div>
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">int_sweep.csv<br>fp_sweep.csv</span>
+      <span class="func-brief">全格式 (K, W) 扫描的完整设计点数据（能量 + 各误差指标），供 Pareto 分析使用</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p>全格式 (K, W) 扫描的完整设计点数据（能量 + 各误差指标），供 Pareto 分析使用。int_sweep.csv 覆盖 INT4/8/16，fp_sweep.csv 覆盖 FP8/FP16/BF16/FP32。</p>
+    </div>
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">int_pareto*.csv<br>fp_pareto*.csv</span>
+      <span class="func-brief">各格式的 Pareto 前沿点，按格式分文件存储（int_pareto_int8.csv 等）</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p>各格式的 Pareto 前沿点，按格式分文件存储（int_pareto_int8.csv 等）。这些是 sweep 文件经过 Pareto 过滤后的子集，直接用于 Fig 4 散点图的绘制。</p>
+    </div>
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">fp8_study.csv</span>
+      <span class="func-brief">FP8 E4M3 / E5M2 专项扫描数据，展示新型低精度格式在 (能量, 误差) 平面的位置</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p>FP8 E4M3 / E5M2 专项扫描数据，展示新型低精度格式在 (能量, 误差) 平面的位置，用于 FP8 专项分析图（量化误差 vs 截断误差拆分）。</p>
+    </div>
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">redesign_summary.txt<br>run_summary.txt</span>
+      <span class="func-brief">核心数值结论的纯文本汇总，方便快速查阅而无需解析 CSV</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p>核心数值结论的纯文本汇总，方便快速查阅而无需解析 CSV。redesign_summary.txt 包含 Contribution A/B 的关键比较数字；run_summary.txt 包含最近一次全流程实验的输出摘要。</p>
+    </div>
+  </details>
 </div>
 </details>
 
@@ -837,190 +1150,302 @@
 <details class="file-group" open>
 <summary><span class="tag tag-v">V</span> rtl/src/ — Verilog 源码（9 个模块）<span class="chevron">▶</span></summary>
 <div class="file-group-body">
-  <div class="file-row">
-    <span class="file-name">mac_unit.v</span>
-    <div class="file-desc">
+  <details class="func-row">
+    <summary>
+      <span class="func-name">mac_unit.v</span>
+      <span class="func-brief">参数化单 MAC 单元：a/b INT8、K[2:0] 截断深度、mode 0=trunc/1=round，调用截断乘法器 + ACA 加法器</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><strong>单个近似 MAC 单元</strong>，参数化设计。顶层接口：<code>a[7:0]</code>、<code>b[7:0]</code>（有符号 INT8）、<code>K[2:0]</code>（截断深度）、<code>mode</code>（0=trunc，1=round）。内部调用截断乘法器 + ACA 加法器，是整个 RTL 层的原子计算单元。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">aca_adder.v</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">aca_adder.v</span>
+      <span class="func-brief">参数化 ACA 近似加法器：进位隔离窗口 W，将 acc_bits 宽加法切成独立段，段间无进位传播</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><strong>ACA 近似加法器</strong>：参数化进位隔离窗口 W。把 acc_bits 宽的加法切成若干宽度 W 的独立段，段间无进位传播，用比精确加法器更少的逻辑面积实现近似求和。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">mac_array.v</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">mac_array.v</span>
+      <span class="func-brief">16 个 MAC 单元的向量点积阵列，Quartus 综合主目标模块，21% LE 利用率</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><strong>16 个 MAC 单元组成的向量点积阵列</strong>，一次计算一行与权重向量的内积。是 mlp_top 和 mlp_top_demo 的计算核，也是 Quartus 综合的主目标模块（用于 PPA 报告）。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">lfsr.v</span>
-    <div class="file-desc">
-      <p><strong>K 位最大长度 LFSR（Linear Feedback Shift Register）</strong>，为 stochastic rounding 提供每周期的均匀随机数。其硬件代价（K 个触发器 + 少量 XOR）由 power_model.py 的 <code>rng_energy_pJ(K)</code> 建模，也是 Contribution A 中 round 模式相对 stochastic 模式节省的代价来源。</p>
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">lfsr.v</span>
+      <span class="func-brief">K 位最大长度 LFSR，采用最优反馈多项式，每时钟输出 1 个 K 位随机数，为 stochastic rounding 提供均匀随机源</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p><strong>K 位最大长度 LFSR（Linear Feedback Shift Register）</strong>，为 stochastic rounding 提供每周期的均匀随机数。内部使用 maximal-length 多项式（K=4 时 x⁴+x+1，K=8 时 x⁸+x⁶+x⁵+x⁴+1）确保 2^K-1 长度的非重复序列；seed 参数可配置初始状态（默认非零）；每个时钟周期输出 1 个 K 位随机数。其硬件代价（K 个触发器 + 少量 XOR）由 power_model.py 的 <code>rng_energy_pJ(K)</code> 建模，也是 Contribution A 中 round 模式相对 stochastic 模式节省的代价来源。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">mlp_top.v</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">mlp_top.v</span>
+      <span class="func-brief">两层 MLP 推理顶层（功能验证版）：mac_array × 2 + ReLU + 权重/偏置 ROM，用于 ModelSim 仿真</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><strong>两层 MLP 推理顶层</strong>（功能验证版）。将 mac_array 实例化两次，加上 ReLU 激活和权重/偏置 ROM，完成端到端 MLP 推理。主要用于 ModelSim 仿真，与 Python golden 数据比对。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">mlp_top_demo.v</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">mlp_top_demo.v</span>
+      <span class="func-brief">板级演示顶层（EP4CE10）：mlp_top + LED argmax 输出 + UART 接口，2026-06-01 烧录成功</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><strong>板级演示顶层</strong>（野火征途 Pro EP4CE10）。在 mlp_top 基础上添加 LED 输出逻辑（显示 argmax 分类结果）和 UART 输出接口，与 uart_framer 连接，将推理结果实时串口发送到 PC。</p>
       <div class="finding green">2026-06-01 板上烧录成功，LED argmax=1 确认。</div>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">drum_multiplier.v</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">drum_multiplier.v</span>
+      <span class="func-brief">DRUM-k 近似乘法器（P1.1）：LZC → 桶移位提取 K_DRUM MSB → K×K 精确乘 → 符号恢复</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><strong>DRUM-k 近似乘法器（P1.1 新增）</strong>，参数化设计（N_BITS / K_DRUM）。接口：<code>a[7:0]</code>、<code>b[7:0]</code>（有符号 INT8）、<code>product[15:0]</code>。内部：前导位计数器（LZC）→ 桶移位提取 K_DRUM 个 MSB → K×K 乘法器 → 符号恢复。相比精确 8×8 乘法器面积更小，相比 round 模式（trunc + 常数加法）控制逻辑更复杂。零均值误差属性由 Python 100k 样本验证。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">uart_tx.v</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">uart_tx.v</span>
+      <span class="func-brief">UART 发送器：115200 baud 8N1，将并行字节转换为串行比特流输出到 TX 引脚</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><strong>UART 发送器</strong>，115200 baud，标准 8N1 格式。将并行字节转换为串行比特流输出到 TX 引脚，连接 PC 端串口工具（<code>burn_capture.bat</code> 使用）。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">uart_framer.v</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">uart_framer.v</span>
+      <span class="func-brief">UART 帧封装：将 MLP 多字节 logit 向量打包成带帧头/帧尾的串口帧，驱动 uart_tx 逐字节发送</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><strong>UART 帧封装模块</strong>：将 MLP 输出的多字节 logit 向量打包成带帧头/帧尾的串口帧，驱动 uart_tx 逐字节发送。使片上多 K 测试结果可以无歧义地传回 PC 分析。</p>
     </div>
-  </div>
+  </details>
 </div>
 </details>
 
 <details class="file-group">
 <summary><span class="tag tag-sv">SV</span> rtl/tb/ — SystemVerilog 测试台（6 个）<span class="chevron">▶</span></summary>
 <div class="file-group-body">
-  <div class="file-row">
-    <span class="file-name">tb_mac_unit.sv</span>
-    <div class="file-desc">
+  <details class="func-row">
+    <summary>
+      <span class="func-name">tb_mac_unit.sv</span>
+      <span class="func-brief">从 mac_int8.csv 读入测试向量逐条驱动 mac_unit，验证 trunc/round 两种模式，ModelSim 全部 PASS</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>从 <code>rtl/golden/mac_int8.csv</code>（由 Python 生成）读入测试向量，逐条驱动 mac_unit RTL，比对输出，打印 PASS/FAIL。支持 trunc 和 round 两种模式。ModelSim 中全部 PASS。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">tb_aca_adder.sv</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">tb_aca_adder.sv</span>
+      <span class="func-brief">从 aca.csv 读入 (a, b, W) 三元组验证 aca_adder 段隔离求和，与 Python aca_add() 结果逐位比对</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>从 <code>rtl/golden/aca.csv</code> 读入 (a, b, W) 三元组，验证 aca_adder RTL 的段隔离求和行为，与 Python <code>aca_add()</code> 结果逐位比对。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">tb_mac_array.sv</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">tb_mac_array.sv</span>
+      <span class="func-brief">测试 16 MAC 阵列在多种 K 值下的向量点积，验证广播、累加逻辑正确性</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>测试 16 个 MAC 组成的阵列，在多种 K 值下验证向量点积结果，确保阵列的广播、累加逻辑正确。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">tb_mlp_top.sv</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">tb_mlp_top.sv</span>
+      <span class="func-brief">端到端 MLP 测试台：从 mlp_toy/ 读入权重/偏置/输入，对 6 种 (K, mode) 组合比对 logit 向量，ModelSim 全 PASS</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>端到端 MLP 测试台：从 <code>rtl/golden/mlp_toy/</code> 读入权重（w0/w1）、偏置（b0/b1）、输入（x）和期望输出（y_K*_*.csv），对每种 K+mode 组合运行完整推理，比对 logit 向量。ModelSim 全部 PASS。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">tb_mlp_top_demo.sv</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">tb_mlp_top_demo.sv</span>
+      <span class="func-brief">板级 wrapper 仿真：复位后约 400 周期断言 led_class==1（K=2 trunc golden），上板前最后一道仿真关</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>板级 wrapper 仿真测试台：实例化 <code>mlp_top_demo</code>（K=2 trunc），施加复位脉冲，等待约 400 个时钟周期后断言 <code>led_class == 1</code>（K=2 trunc 的 golden argmax）。同时连接 <code>uart_tx_pin</code> 引脚但不检查 UART 波形。上板烧录前的最后一道仿真关。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">tb_drum_multiplier.sv</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">tb_drum_multiplier.sv</span>
+      <span class="func-brief">DRUM 乘法器测试台（P1.1）：200 组 INT8 向量从 drum_int8.csv 读入，驱动 DUT（N_BITS=8, K_DRUM=4），ModelSim 200/200 PASS</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><strong>DRUM 乘法器测试台（P1.1 新增）</strong>：从 <code>rtl/golden/drum_int8.csv</code>（由 <code>rtl/golden/gen_drum_golden.py</code> 用 Python <code>drum_multiply</code> 生成，200 组 INT8 测试向量）读入 (a, b, expected_product)，驱动 <code>drum_multiplier</code> DUT（N_BITS=8, K_DRUM=4），逐向量比对输出，全部 PASS 后打印 "ALL TESTS PASSED"。</p>
     </div>
-  </div>
+  </details>
 </div>
 </details>
 
 <details class="file-group">
 <summary><span class="tag tag-py">PY</span> rtl/golden/ — Python 生成的 RTL 参考数据<span class="chevron">▶</span></summary>
 <div class="file-group-body">
-  <div class="file-row">
-    <span class="file-name">export_golden.py</span>
-    <div class="file-desc">
+  <details class="func-row">
+    <summary>
+      <span class="func-name">export_golden.py</span>
+      <span class="func-brief">用 axmac 模块生成所有 RTL 仿真 golden 数据，输出 .csv（逐行解析）和 .mem（$readmemb）两种格式</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>用 <code>axmac</code> Python 模块生成所有 RTL 仿真所需的 golden 数据。输出两种格式：<code>.csv</code>（人类可读，用于 SystemVerilog <code>$readmemh</code> 或逐行解析）和 <code>.mem</code>（Verilog <code>$readmemb</code> 二进制格式）。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">mac_int8.csv<br>mac_int8_stoch.csv<br>aca.csv</span>
-    <div class="file-desc">MAC 单元和 ACA 加法器的参考向量，包含输入 (a, b, acc, K) 和期望输出。stoch 版本含随机舍入序列。</div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">mlp_toy/<br>&nbsp;&nbsp;w0.csv / w1.csv<br>&nbsp;&nbsp;b0.csv / b1.csv<br>&nbsp;&nbsp;x.csv<br>&nbsp;&nbsp;y_K0_trunc.csv<br>&nbsp;&nbsp;y_K2_trunc.csv<br>&nbsp;&nbsp;y_K4_trunc.csv<br>&nbsp;&nbsp;y_K4_round.csv<br>&nbsp;&nbsp;y_K0_round.csv<br>&nbsp;&nbsp;y_K2_round.csv<br>&nbsp;&nbsp;x/w0/w1/b0/b1.mem</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">mac_int8.csv<br>mac_int8_stoch.csv<br>aca.csv</span>
+      <span class="func-brief">MAC 单元和 ACA 加法器的参考向量，含输入 (a, b, acc, K) 和期望输出，stoch 版本含随机舍入序列</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p>MAC 单元和 ACA 加法器的参考向量，包含输入 (a, b, acc, K) 和期望输出。stoch 版本含随机舍入序列。</p>
+    </div>
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">mlp_toy/<br>&nbsp;&nbsp;w0.csv / w1.csv<br>&nbsp;&nbsp;b0.csv / b1.csv<br>&nbsp;&nbsp;x.csv<br>&nbsp;&nbsp;y_K0_trunc.csv … y_K2_round.csv<br>&nbsp;&nbsp;x/w0/w1/b0/b1.mem</span>
+      <span class="func-brief">两层玩具 MLP 完整数据集：量化权重/偏置/输入 + 6 种 (K, mode) 期望输出 logit 向量</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>两层玩具 MLP 的完整数据集：量化权重矩阵、偏置、输入向量，以及 6 种 (K, mode) 组合的期望输出 logit 向量。<strong>注：</strong>.mem 格式（供 Verilog <code>$readmemb</code> 使用）仅存在于 x/w0/w1/b0/b1 五个文件；y_K* 输出向量由 SystemVerilog 测试台以 CSV 格式逐行读取，无对应 .mem。</p>
     </div>
-  </div>
+  </details>
 </div>
 </details>
 
 <details class="file-group">
 <summary><span class="tag tag-tcl">TCL</span> rtl/vendor/altera/ — Quartus 综合脚本与结果<span class="chevron">▶</span></summary>
 <div class="file-group-body">
-  <div class="file-row">
-    <span class="file-name">build_quartus.tcl</span>
-    <div class="file-desc">
+  <details class="func-row">
+    <summary>
+      <span class="func-name">build_quartus.tcl</span>
+      <span class="func-brief">主综合脚本：EP4CE10 目标器件，50 MHz 约束，Analysis+Synthesis→Fitter→Timing 全流程，21% LE</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>主综合脚本：指定目标器件 EP4CE10（Cyclone IV E）、时钟约束 50 MHz、源文件列表，执行 Analysis+Synthesis → Fitter → Timing Analysis 全流程。</p>
       <div class="finding green">综合结果：21% LE 利用率，50 MHz 时序关闭（timing met）。</div>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">ppa_sweep.tcl</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">ppa_sweep.tcl</span>
+      <span class="func-brief">PPA 多配置扫描：自动对 K=0/2/4/6（trunc/round/stoch）组合运行 Quartus，提取 LE / Fmax / 功耗</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>PPA（Power-Performance-Area）多配置扫描脚本：自动对 K=0/2/4/6（trunc/round/stoch）等多种参数组合运行 Quartus 综合，提取 LE 数量、最大频率、静态/动态功耗，输出供报告使用。对应 <code>build/ppa_trunc_K6/</code>、<code>build/ppa_round_K6/</code> 等子目录。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">mlp_top_ep4ce10_pins.tcl</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">mlp_top_ep4ce10_pins.tcl</span>
+      <span class="func-brief">EP4CE10 引脚约束：将时钟、LED、UART TX 绑定到具体 I/O 管脚，由所有 build / run 脚本 source</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>EP4CE10（野火征途 Pro）引脚约束文件：将时钟、LED、UART TX 等顶层端口绑定到具体 I/O 管脚编号，由 <code>build_demo.tcl</code> 和各 <code>run_K*.tcl</code> 共同 <code>source</code>。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">build_demo.tcl<br>build_uart_demo.tcl</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">build_demo.tcl<br>build_uart_demo.tcl</span>
+      <span class="func-brief">板级演示综合脚本：无 UART / 含 UART 两个版本，输出烧录用 .sof 比特流</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><strong>板级演示综合脚本</strong>：<code>build_demo.tcl</code> 综合不含 UART 的 mlp_top_demo；<code>build_uart_demo.tcl</code> 综合含 uart_framer + uart_tx 的完整演示顶层，生成用于烧录的 <code>.sof</code> 比特流。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">run_K0_trunc.tcl<br>run_K2_trunc.tcl<br>run_K4_trunc.tcl<br>run_K4_round.tcl<br>run_K6_trunc.tcl</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">run_K0_trunc.tcl<br>run_K2_trunc.tcl<br>run_K4_trunc.tcl<br>run_K4_round.tcl<br>run_K6_trunc.tcl</span>
+      <span class="func-brief">五种片上验证配置的独立综合脚本，与 burn_K*.bat 一一对应，每个输出单独 .sof</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><strong>五种片上验证配置的独立综合脚本</strong>，与 §5 中的五个 <code>burn_K*.bat</code> 一一对应。每个脚本设置对应的 K 和 mode 参数后调用 Quartus 综合 + Fitter，输出单独的 <code>.sof</code> 文件，避免重复重编译整个工程。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">build_uart_K0_trunc.tcl<br>build_one_uart.tcl</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">build_uart_K0_trunc.tcl<br>build_one_uart.tcl</span>
+      <span class="func-brief">UART 单配置综合辅助脚本：独立编译 uart_tx / uart_framer，调试时的快速构建入口</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>UART 输出单配置综合辅助脚本：用于独立编译单 UART 通道配置，调试 uart_tx / uart_framer RTL 时的快速构建入口。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">test_project_new.tcl</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">test_project_new.tcl</span>
+      <span class="func-brief">Quartus 工程创建与验证测试脚本：新建临时工程执行 Analysis+Elaboration，快速检查 RTL 语法，不生成 .sof</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>Quartus 工程创建与验证测试脚本：自动新建临时工程、添加源文件、执行 Analysis+Elaboration，用于快速检查 RTL 语法和端口绑定是否正确，不生成 .sof。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">build/ 目录</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">build/ 目录</span>
+      <span class="func-brief">Quartus 综合输出目录：.qpf / .qsf / .map.rpt / .flow.rpt 及增量编译数据库，通常不手动编辑</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>Quartus 综合输出：<code>.qpf</code>（项目文件）、<code>.qsf</code>（设置文件，含引脚分配）、<code>.map.rpt</code>（映射报告）、<code>.flow.rpt</code>（流程总结）、增量编译数据库等。通常不手动编辑。</p>
     </div>
-  </div>
+  </details>
 </div>
 </details>
 
 <details class="file-group">
 <summary><span class="tag tag-ps1">PS1</span> rtl/setup_path.ps1 — 环境配置<span class="chevron">▶</span></summary>
 <div class="file-group-body">
-  <div class="file-row">
-    <span class="file-name">setup_path.ps1</span>
-    <div class="file-desc">在 PowerShell 中添加 Quartus / ModelSim 到 PATH，确保 <code>quartus_sh</code>、<code>vsim</code> 等命令可用。需要在运行综合脚本前执行一次。</div>
-  </div>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">setup_path.ps1</span>
+      <span class="func-brief">PowerShell 环境配置：将 Quartus / ModelSim 添加到 PATH，运行综合脚本前执行一次</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p>在 PowerShell 中添加 Quartus / ModelSim 到 PATH，确保 <code>quartus_sh</code>、<code>vsim</code> 等命令可用。需要在运行综合脚本前执行一次。</p>
+    </div>
+  </details>
 </div>
 </details>
 
@@ -1107,61 +1532,99 @@
 <details class="file-group" open>
 <summary><span class="tag tag-py">PY</span> 测试模块（8 个）<span class="chevron">▶</span></summary>
 <div class="file-group-body">
-  <div class="file-row">
-    <span class="file-name">test_exact_mac.py</span>
-    <div class="file-desc">
+  <details class="func-row">
+    <summary>
+      <span class="func-name">test_exact_mac.py</span>
+      <span class="func-brief">精确 MAC 全路径测试：INT/FP 全格式与 oracle 位模式级精确匹配，K=0 必须与精确路径字节相同</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><strong>精确 MAC 全路径测试</strong>。INT4/8/16 用 Python 原生整数作为 oracle；FP32/FP16 与 numpy 位模式级精确匹配；BF16 与 <code>round-to-bf16</code> oracle 对比；K=0 必须与精确路径字节相同（回归保护）。含 1 个 torch 未安装时自动 skip 的测试（<code>make_approx_linear_torch</code>）。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">test_approx_mac.py</span>
-    <div class="file-desc">
-      <p>近似 MAC 单元测试：覆盖 trunc / round / stochastic 三种舍入模式在各 K 值和 ACA 窗口下的行为，验证 K=0 退化为精确路径、W≥acc_bits 退化为精确加法器的边界条件。</p>
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">test_approx_mac.py</span>
+      <span class="func-brief">近似 MAC 三维网格测试：K=0~7 × W=4/8/16 × mode(trunc/round/stochastic)，约 80 个参数化用例</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p>覆盖 K=0~7 × W=4/8/16 × mode(trunc/round/stochastic) 三维网格，共约 80 个参数化测试用例；验证 K=0 退化精确路径（与 exact_mac 字节相同）、stochastic 多次运行结果不同于 trunc（随机性检查）、ACA W≥acc_bits 退化为精确加法器。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">test_fp8.py</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">test_fp8.py</span>
+      <span class="func-brief">FP8 专项测试：E4M3/E5M2 encode/decode 往返一致性、NaN 边界条件及 MAC 路径饱和/下溢行为</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>FP8 专项测试：E4M3（has_inf=False）与 E5M2 的 encode/decode 往返一致性、NaN 边界（全 1 指数 + 全 1 尾数）、FP8 MAC 路径的饱和/下溢行为。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">test_power_model.py</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">test_power_model.py</span>
+      <span class="func-brief">功耗模型公式验证：truncation_savings / aca_savings / rng_energy_pJ 正确性及 K=0 零节省、K 上限 0.95 单调性约束</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>功耗模型数值验证：<code>truncation_savings</code>、<code>aca_savings</code>、<code>rng_energy_pJ</code> 的公式正确性，以及 K=0 时节省量为 0、K 达上限时节省量不超过 0.95 的单调性约束。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">test_accuracy_eval.py</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">test_accuracy_eval.py</span>
+      <span class="func-brief">精度评估回归测试：已知偏差输入的统计量计算，及三种分布下 sweep 不产生 NaN 或负 NMED 的健壮性检查</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>精度评估回归测试：<code>error_stats_int</code> / <code>error_stats_fp</code> 对已知偏差输入的统计量计算，以及 <code>sweep_int</code> / <code>sweep_fp</code> 在不同分布（uniform / normal / relu）下不发生 NaN 或负 NMED 的健壮性检查。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">test_sensitivity.py</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">test_sensitivity.py</span>
+      <span class="func-brief">敏感度分析合理性检查：layer_sensitivity 长度/非负性、allocate_K 等敏感度时退化均匀分配、预算守恒</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>敏感度分析合理性检查：<code>layer_sensitivity</code> 输出长度与层数相同、值非负；<code>allocate_K</code> 在等敏感度等 MAC 时退化为均匀分配；总截断预算守恒。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">test_dnn_inference.py</span>
-    <div class="file-desc">
-      <p>推理引擎等价性测试：<code>int_matmul_approx</code> 向量化实现与逐 MAC 循环的输出逐元素相同；<code>int_conv2d_approx</code>（im2col 路径）与 naive 卷积对齐；<code>tiny_mlp_forward</code> K=0 与精确 matmul 一致。</p>
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">test_dnn_inference.py</span>
+      <span class="func-brief">推理引擎等价性测试：含 DRUM 向量化后端等价性及 tiny_mlp_forward 接受列表/标量 K 两种形式</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p>推理引擎等价性测试：<code>int_matmul_approx</code> 向量化实现与逐 MAC 循环的输出逐元素相同；<code>int_conv2d_approx</code>（im2col 路径）与 naive 卷积对齐；<code>tiny_mlp_forward</code> K=0 与精确 matmul 一致。含 DRUM 向量化后端等价性测试（int_matmul_drum 与逐 MAC drum_multiply 循环输出逐元素相同）；测试 tiny_mlp_forward 接受列表 K（非均匀）与标量 K 两种输入形式均产生正确 shape 输出。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name">test_pareto.py</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name">test_pareto.py</span>
+      <span class="func-brief">Pareto 正确性测试：global_front 无互相支配点对、per_format_fronts 正确分组、数据清洗函数验证</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p>Pareto 分析正确性测试：<code>global_front</code> 输出中不存在互相支配的点对；<code>per_format_fronts</code> 按格式正确分组；<code>_canonicalise_windows</code> 将 W≥acc_bits 折叠为 None；<code>_filter_usable</code> 过滤 NRMSE 超阈值配置。</p>
     </div>
-  </div>
+  </details>
 </div>
 </details>
 
-<div class="file-row" style="margin-top:10px;">
-  <span class="file-name"><span class="tag tag-json">INI</span>pytest.ini</span>
-  <div class="file-desc">pytest 配置：设置 <code>testpaths = tests</code>，确保从项目根目录运行时能正确发现测试，无需设置 PYTHONPATH（实验脚本自行添加 sys.path）。</div>
-</div>
+<details class="func-row" style="margin-top:10px;">
+  <summary>
+    <span class="func-name"><span class="tag tag-json">INI</span>pytest.ini</span>
+    <span class="func-brief">pytest 配置：testpaths = tests，从项目根目录运行时自动发现测试，无需设置 PYTHONPATH</span>
+    <span class="chevron-fn">▶</span>
+  </summary>
+  <div class="func-body">
+    <p>pytest 配置：设置 <code>testpaths = tests</code>，确保从项目根目录运行时能正确发现测试，无需设置 PYTHONPATH（实验脚本自行添加 sys.path）。</p>
+  </div>
+</details>
 
 </div>
 </details>
@@ -1181,12 +1644,16 @@
 </summary>
 <div class="sec-body">
 
-<div class="file-row">
-  <span class="file-name"><span class="tag tag-md">MD</span>reference/README.md</span>
-  <div class="file-desc">
+<details class="func-row">
+  <summary>
+    <span class="func-name"><span class="tag tag-md">MD</span>reference/README.md</span>
+    <span class="func-brief">公式索引：每个公式映射到出处论文（页码 / 公式编号 / DOI），落实课程"公式必须有引用"要求</span>
+    <span class="chevron-fn">▶</span>
+  </summary>
+  <div class="func-body">
     <p><strong>公式索引</strong>：将项目中每个公式/模型映射到对应的出处论文，包括页码、公式编号、DOI。这是课程要求"每个公式都要有论文引用"的落实文件。</p>
   </div>
-</div>
+</details>
 
 <table class="result-table" style="margin-top:10px;">
   <tr><th>文件</th><th>对应论文</th><th>在项目中的作用</th></tr>
@@ -1265,34 +1732,66 @@
 </summary>
 <div class="sec-body">
 
-  <div class="file-row">
-    <span class="file-name"><span class="tag tag-json">GIT</span>.gitignore</span>
-    <div class="file-desc">忽略 <code>__pycache__/</code>、<code>*.pyc</code>、Quartus 大型数据库（<code>db/</code>、<code>incremental_db/</code>）、实验结果的图片/PDF（copyright 原因论文 PDF 也被忽略）。</div>
-  </div>
-  <div class="file-row">
-    <span class="file-name"><span class="tag tag-json">INI</span>pytest.ini</span>
-    <div class="file-desc">设置 <code>testpaths = tests</code>，从项目根目录运行 <code>python -m pytest</code> 时自动发现 <code>tests/</code> 包下的所有测试。</div>
-  </div>
-  <div class="file-row">
-    <span class="file-name"><span class="tag tag-py">PY</span>main.py</span>
-    <div class="file-desc">
+  <details class="func-row">
+    <summary>
+      <span class="func-name"><span class="tag tag-json">GIT</span>.gitignore</span>
+      <span class="func-brief">忽略 __pycache__ / Quartus 大型数据库 / 实验结果图片及论文 PDF（版权原因）</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p>忽略 <code>__pycache__/</code>、<code>*.pyc</code>、Quartus 大型数据库（<code>db/</code>、<code>incremental_db/</code>）、实验结果的图片/PDF（copyright 原因论文 PDF 也被忽略）。</p>
+    </div>
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name"><span class="tag tag-json">INI</span>pytest.ini</span>
+      <span class="func-brief">testpaths = tests，从项目根目录 python -m pytest 时自动发现 tests/ 包下所有测试</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p>设置 <code>testpaths = tests</code>，从项目根目录运行 <code>python -m pytest</code> 时自动发现 <code>tests/</code> 包下的所有测试。</p>
+    </div>
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name"><span class="tag tag-py">PY</span>main.py</span>
+      <span class="func-brief">端到端实验驱动入口：INT/FP 设计空间扫描 + MLP K 扫描 + 全格式 Pareto，侧重 Pareto 输出</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><strong>端到端实验驱动入口</strong>（<code>python -m main</code>）。整合四个实验区段：A) INT 设计空间扫描，B) FP 设计空间扫描，C) INT8 MLP K 扫描，D) INT4/8/16 vs FP32 统一任务级 Pareto。将结果写入 <code>experiments/results/</code>，输出 <code>run_summary.txt</code>。与 <code>experiments/redesign_experiments.py</code> 的区别：本文件更侧重 Pareto 前沿输出，redesign 脚本侧重偏差累积和 Contribution A/B 的对比展示。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name"><span class="tag tag-py">PY</span>read_uart.py</span>
-    <div class="file-desc">
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name"><span class="tag tag-py">PY</span>read_uart.py</span>
+      <span class="func-brief">UART 片上结果读取工具：0xAB 帧头 + 10×int32，自动检测 CH340，支持 --loop 持续读取</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
       <p><strong>UART 片上结果读取工具</strong>。协议：<code>0xAB</code> 帧头 + 10 × int32 little-endian（41 字节/帧）。自动检测 CH340 串口，解码 MLP logit 向量并打印 argmax 分类结果。支持 <code>--loop</code> 持续读取（跨多次烧录）和 <code>--port</code> 显式指定端口。是 <code>burn_capture.bat</code> 的 Python 等价工具，可直接替代 bat 文件在命令行使用。</p>
     </div>
-  </div>
-  <div class="file-row">
-    <span class="file-name"><span class="tag tag-json">TXT</span>requirements.txt</span>
-    <div class="file-desc">正式依赖：<code>numpy&gt;=2.0</code>（向量化推理）、<code>pytest&gt;=8.0</code>（测试框架）、<code>torch&gt;=2.4</code> + <code>torchvision&gt;=0.19</code>（CIFAR-10 实验及 PyTorch 后端，P0.1 后升为必须项）。<code>matplotlib</code> 仅 <code>generate_figures.py</code> 需要，仍为注释可选。</div>
-  </div>
-  <div class="file-row">
-    <span class="file-name"><span class="tag tag-html">HTML</span>project_overview.html</span>
-    <div class="file-desc">就是本文件——项目文件结构可折叠说明文档。</div>
-  </div>
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name"><span class="tag tag-json">TXT</span>requirements.txt</span>
+      <span class="func-brief">正式依赖：numpy≥2.0 / pytest≥8.0 / torch≥2.4 + torchvision≥0.19，matplotlib 可选</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p>正式依赖：<code>numpy&gt;=2.0</code>（向量化推理）、<code>pytest&gt;=8.0</code>（测试框架）、<code>torch&gt;=2.4</code> + <code>torchvision&gt;=0.19</code>（CIFAR-10 实验及 PyTorch 后端，P0.1 后升为必须项）。<code>matplotlib</code> 仅 <code>generate_figures.py</code> 需要，仍为注释可选。</p>
+    </div>
+  </details>
+  <details class="func-row">
+    <summary>
+      <span class="func-name"><span class="tag tag-html">HTML</span>project_overview.html</span>
+      <span class="func-brief">本文件——项目文件结构可折叠说明文档</span>
+      <span class="chevron-fn">▶</span>
+    </summary>
+    <div class="func-body">
+      <p>就是本文件——项目文件结构可折叠说明文档。</p>
+    </div>
+  </details>
 
 </div>
 </details>

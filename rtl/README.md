@@ -14,23 +14,30 @@ Vendor-agnostic Verilog lives in `src/`. Board-specific pin/timing constraints a
 ```
 rtl/
   src/                       # vendor-agnostic Verilog (shared by both flows)
+    drum_multiplier.v [done]  # DRUM-k approximate multiplier (zero-mean error)
     mac_unit.v   [done]      # INT8 multiplier + K-bit trunc/round/stochastic
+    lfsr.v       [done]      # 64-bit Fibonacci LFSR for stochastic rounding
     aca_adder.v  [done]      # W-parameterised approximate-carry adder
     mac_array.v  [done]      # parameterisable R x C output-stationary array
-    mlp_top.v    [TODO P4]   # FSM + tiling controller for the toy MLP
-    bram_wrapper.v [TODO P4] # behavioural RAM interface (vendor IP plugs in here)
+    mlp_top.v    [done]      # FSM + tiling controller for the toy MLP (8 states, ~320 cycles)
+    mlp_top_demo.v [done]    # board wrapper: LED argmax display + UART TX
+    uart_tx.v    [done]      # 8N1 UART transmitter
+    uart_framer.v [done]     # 41-byte logit frame sender (0xAB header + 10×int32 LE)
   tb/                        # SystemVerilog testbenches (shared)
-    tb_mac_unit.sv   [done]
-    tb_aca_adder.sv  [done]
-    tb_mac_array.sv  [done]
-    tb_mlp_top.sv    [TODO P4]
-    test_mac_unit.py [cocotb backup -- needs Python 3.13, see Toolchain notes]
-    run_tests.py     # Icarus driver (Windows-friendly, no make)
+    tb_drum_multiplier.sv [done]  # DRUM: 200 vectors, bit-exact
+    tb_mac_unit.sv   [done]       # 4046 det. + stochastic mean ±5σ
+    tb_aca_adder.sv  [done]       # 1024 vectors, W=4/8/16/32
+    tb_mac_array.sv  [done]       # 4×4 structural test, K=0 exact mode
+    tb_mlp_top.sv    [done]       # 10/10 logits bit-exact vs Python golden
+    tb_mlp_top_demo.sv [done]     # led_class=1 verified
+    run_tests.py     # ModelSim driver (Windows-friendly, .absolute() path fix)
   golden/                    # Python-side reference vectors (see below)
-    export_golden.py
+    export_golden.py         # generates mac_int8.csv, aca.csv, mlp_toy/
+    gen_drum_golden.py       # generates drum_int8.csv
     mac_int8.csv             # 4046 rows (K=0..6 x trunc/round)
     mac_int8_stoch.csv       # 1536 rows (distributional check)
     aca.csv                  # 1024 rows (W=4/8/16/32)
+    drum_int8.csv            # 200 rows (DRUM-4, signed INT8)
     mlp_toy/                 # 11 files: 64->16->10 x/w/b + 6 (K, mode) outputs
   build/                     # ModelSim work libs + Quartus artifacts (gitignored)
   vendor/
@@ -53,7 +60,8 @@ rtl/
 | 3 | mac_array.v + tb_mac_array.sv (4×4 output-stationary, inline reference) | **PASS** — 16 cases (ModelSim 2026-06-01) |
 | 4 | mlp_top.v + tb_mlp_top.sv (FSM + tiling, toy 64→16→10) | **PASS** — 10/10 outputs bit-exact vs Python golden (ModelSim 2026-06-01) |
 | 4b | mlp_top_demo.v + tb_mlp_top_demo.sv (board wrapper, LED display) | **PASS** — led_class=1 matches argmax of golden logits (ModelSim 2026-06-01) |
-| 5 | Quartus synth + .sof + board burn on EP4CE10 (野火征途) | **TODO** — scripts + pin constraints ready; running synthesis now |
+| 5 | Quartus synth + .sof + board burn on EP4CE10 (野火征途) | **PASS** — 5 configs burned (K0/K2/K4 trunc, K4 round, K6 trunc); K=6 trunc argmax 1→3 misclassification confirmed on-chip 2026-06-01 |
+| P1.1 | drum_multiplier.v + tb_drum_multiplier.sv + drum_int8.csv | **PASS** — ModelSim 200 vectors 0 failed (2026-06-05) |
 
 ## Golden CSV contract
 
@@ -84,7 +92,7 @@ py -3.14 rtl/golden/export_golden.py
 
 | Tool | Why | Status |
 |------|-----|--------|
-| **ModelSim-Altera 10.5b** | Simulation (all testbenches) | Installed at `E:\Quart\modelsim_ase\`; use junction `E:\axmac_rtl` to bypass Unicode-path bug |
+| **ModelSim-Altera 10.5b** | Simulation (all testbenches) | Installed at `E:\Quart\modelsim_ase\`; copy build artifacts to `E:\uart_builds\` (PowerShell) to bypass full-width colon in project path |
 | **Quartus Prime Lite 18.1** | Synthesis + bitstream + PowerPlay for EP4CE10 | Installed at `E:\Quart\quartus\` |
 | ~~cocotb~~ | Was the initial testbench plan | **Abandoned** — requires Python ≤ 3.13; project uses 3.14 |
 

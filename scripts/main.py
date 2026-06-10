@@ -5,7 +5,7 @@ dumps results to ``experiments/results/`` as CSV for downstream plotting.
 Usage (from any working directory; the fullwidth-colon project path
 breaks Python's startup if used as cwd, see README):
 
-    python -m main
+    python scripts/main.py
 
 Outputs
 -------
@@ -45,7 +45,7 @@ from axmac.power_model import mac_int_energy
 # Output paths
 # ============================================================
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent   # project root (scripts/ -> root)
 RESULTS_DIR = HERE / "experiments" / "results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 

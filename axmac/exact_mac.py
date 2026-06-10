@@ -34,6 +34,7 @@ from typing import NamedTuple
 # Format descriptors
 # ============================================================
 
+# frozen=True: 不可变，可作为 dict key —— power_model.py 的 _BASE_PJ 表用格式名当 key
 @dataclass(frozen=True)
 class IntFormat:
     name: str
@@ -41,11 +42,11 @@ class IntFormat:
 
     @property
     def min_val(self) -> int:
-        return -(1 << (self.bits - 1))
+        return -(1 << (self.bits - 1))   # INT8 → -128
 
     @property
     def max_val(self) -> int:
-        return (1 << (self.bits - 1)) - 1
+        return (1 << (self.bits - 1)) - 1  # INT8 → 127
 
 
 INT4 = IntFormat("INT4", 4)
@@ -53,6 +54,7 @@ INT8 = IntFormat("INT8", 8)
 INT16 = IntFormat("INT16", 16)
 
 
+# has_inf 在三处分支：_to_internal（解码 NaN vs normal）、_renormalize_and_pack（最大指数范围）、_make_qnan（NaN 编码方式）
 @dataclass(frozen=True)
 class FPFormat:
     name: str
@@ -88,6 +90,7 @@ BF16 = FPFormat("BF16", 8, 7)
 # IEEE-754 layout (inf + NaN); E4M3 trades the infinities for one extra binade
 # of finite range and exposes a single NaN encoding.
 FP8_E5M2 = FPFormat("E5M2", 5, 2)
+# E4M3: has_inf=False — 牺牲 ±inf，换一个额外 binade 的有限数范围；唯一 NaN = 全1指数 + 全1mantissa
 FP8_E4M3 = FPFormat("E4M3", 4, 3, has_inf=False)
 
 
